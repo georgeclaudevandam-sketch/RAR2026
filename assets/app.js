@@ -7,6 +7,7 @@
   const STEP = 60;               // chart sampling, seconds
   const TRAIL = 30 * 60;         // map trail length for the field, seconds
   const SLOT = ['s1', 's2', 's3'];
+  const DEFAULT = { crew: '204', vs: '205,202' }; // our crew; compared with the winner and the next crew ahead
 
   const $ = (id) => document.getElementById(id);
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -126,9 +127,9 @@
     const bySail = (s) => crews.find((c) => String(c.sail).toLowerCase() === String(s).toLowerCase());
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem('rar2026') || '{}'); } catch (e) { /* storage unavailable */ }
-    const f = bySail(q.get('crew') || saved.crew || window.RAR_DEFAULT_CREW || '');
+    const f = bySail(q.get('crew') || saved.crew || DEFAULT.crew);
     state.focus = f ? f.id : crews.find((c) => c.place === 1).id;
-    const vs = (q.get('vs') || saved.vs || '').split(',').map(bySail).filter(Boolean).map((c) => c.id).filter((id) => id !== state.focus);
+    const vs = (q.get('vs') ?? (saved.crew ? saved.vs : DEFAULT.vs) ?? '').split(',').map(bySail).filter(Boolean).map((c) => c.id).filter((id) => id !== state.focus);
     const winner = crews.find((c) => c.place === 1).id;
     state.cmp = [vs[0] ?? (winner !== state.focus ? winner : crews.find((c) => c.place === 2).id), vs[1] ?? null];
     if (q.get('div')) state.div = q.get('div');
