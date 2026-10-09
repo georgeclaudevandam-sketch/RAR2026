@@ -28,6 +28,10 @@
     return (neg ? '−' : '') + out;
   }
   const pace = (kmh) => (kmh > 0.5 ? dur(1800 / kmh) : '–');
+  const KN = 1.852;
+  const spd = (kmh) => (kmh == null ? '–' : `${kmh.toFixed(1)} km/h · ${(kmh / KN).toFixed(1)} kn`);
+  const compass = (deg) => (deg == null ? '' : ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(((deg % 360) + 360) % 360 / 45) % 8]);
+  const fTicks = (lo, hi) => { const out = []; for (let f = Math.ceil((lo * 1.8 + 32) / 5) * 5; f <= hi * 1.8 + 32; f += 5) out.push(f); return out; };
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   function shortName(c) {
     // "208 - Gorge Narrows RC - A" -> "Gorge Narrows RC - A"
@@ -100,6 +104,28 @@
     return rows;
   }
 
+  /* ---------- weather (hourly rows: [secondsFromStart, tempC, feelsC, windKn, windDirDeg, cloudPct]) ---------- */
+  function wxAt(t, col, nearest) {
+    const rows = R.weather && R.weather.rows;
+    if (!rows || !rows.length) return null;
+    if (t <= rows[0][0]) return rows[0][col];
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] >= t) {
+        const a = rows[i - 1], b = rows[i];
+        if (a[col] == null || b[col] == null) return a[col] ?? b[col];
+        if (nearest) return t - a[0] < b[0] - t ? a[col] : b[col];
+        return a[col] + (b[col] - a[col]) * ((t - a[0]) / (b[0] - a[0]));
+      }
+    }
+    return rows[rows.length - 1][col];
+  }
+  function renderWx() {
+    if (!R.weather) return;
+    const tc = wxAt(state.t, 1), w = wxAt(state.t, 3), d = wxAt(state.t, 4, true);
+    $('wxTemp').textContent = tc == null ? '–' : `${tc.toFixed(1)} °C`;
+    $('wxSub').textContent = tc == null ? '' : `${(tc * 1.8 + 32).toFixed(0)} °F` + (w != null ? ` · ${w.toFixed(0)} kn ${compass(d)}` : '');
+  }
+
   /* ---------- precomputed results ---------- */
   function computeResults() {
     const fin = crews.filter((c) => c.finish != null).sort((a, b) => a.finish - b.finish);
@@ -162,10 +188,17 @@
       ['Overall', `${c.place}<small class="muted"> / ${crews.length}</small>`, `${c.division}: ${c.divPlace} of ${c.divCount}`],
       ['Finish time', dur(c.finish), `Crossed at ${clock(c.finish, true)}`],
       ['Behind the winner', c.behindWinner ? dur(c.behindWinner) : 'Winner', c.place === 1 ? 'First to finish' : `Winner: ${esc(shortName(crews.find((x) => x.place === 1)))}`],
-      ['Average speed', `${c.avg.toFixed(2)}<small class="muted"> km/h</small>`, `${pace(c.avg)} per 500 m over ${R.courseKm} km`],
+      ['Average speed', `${c.avg.toFixed(2)}<small class="muted"> km/h</small>`, `${(c.avg / KN).toFixed(2)} kn · ${pace(c.avg)} per 500 m`],
       ['GPS distance rowed', `${c.rowedKm.toFixed(1)}<small class="muted"> km</small>`, 'Start to finish, from the tracker'],
       ['Best leg', best ? `${ordinal(best.rk)}` : '–', best ? legNames()[best.k] : ''],
     ];
+    if (R.weather) {
+      const temps = []; for (let t = 0; t <= c.finish; t += 600) { const v = wxAt(t, 1); if (v != null) temps.push(v); }
+      if (temps.length) {
+        const lo = Math.min(...temps), hi = Math.max(...temps);
+        tiles.push(['Temperature on the water', `${lo.toFixed(0)}–${hi.toFixed(0)}<small class="muted"> °C</small>`, `${(lo * 1.8 + 32).toFixed(0)}–${(hi * 1.8 + 32).toFixed(0)} °F while you were racing`]);
+      }
+    }
     $('stats').innerHTML = tiles.map(([k, v, d]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
   }
   const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
@@ -205,10 +238,10 @@
   }
   function renderResults() {
     const rows = crews.slice().sort((a, b) => a.place - b.place);
-    let h = '<thead><tr><th class="num">Place</th><th>Crew</th><th>Division</th><th class="num">Div.</th><th>Captain</th><th class="num">Finished</th><th class="num">Elapsed</th><th class="num">Behind</th><th class="num">Avg km/h</th><th class="num">Pace /500 m</th></tr></thead><tbody>';
+    let h = '<thead><tr><th class="num">Place</th><th>Crew</th><th>Division</th><th class="num">Div.</th><th>Captain</th><th class="num">Finished</th><th class="num">Elapsed</th><th class="num">Behind</th><th class="num">Avg km/h</th><th class="num">Avg kn</th><th class="num">Pace /500 m</th></tr></thead><tbody>';
     rows.forEach((c) => {
       const s = slotOf(c);
-      h += `<tr class="${s >= 0 ? 'hl' : ''}"><td class="num">${c.place}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div></td><td>${c.division}</td><td class="num">${c.divPlace}</td><td>${esc(c.captain || '')}</td><td class="num">${clock(c.finish, true)}</td><td class="num">${dur(c.finish)}</td><td class="num">${c.behindWinner ? '+' + dur(c.behindWinner) : '–'}</td><td class="num">${c.avg.toFixed(2)}</td><td class="num">${pace(c.avg)}</td></tr>`;
+      h += `<tr class="${s >= 0 ? 'hl' : ''}"><td class="num">${c.place}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div></td><td>${c.division}</td><td class="num">${c.divPlace}</td><td>${esc(c.captain || '')}</td><td class="num">${clock(c.finish, true)}</td><td class="num">${dur(c.finish)}</td><td class="num">${c.behindWinner ? '+' + dur(c.behindWinner) : '–'}</td><td class="num">${c.avg.toFixed(2)}</td><td class="num">${(c.avg / KN).toFixed(2)}</td><td class="num">${pace(c.avg)}</td></tr>`;
     });
     $('resultsTable').innerHTML = h + '</tbody>';
   }
@@ -220,6 +253,7 @@
     map = L.map('map', { zoomSnap: 0.25, preferCanvas: false });
     tiles.light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
     tiles.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' });
+    tiles.satLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, opacity: 0.9 });
     tiles.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' });
     setBase();
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setBase);
@@ -255,13 +289,13 @@
   }
   function setBase() {
     Object.values(tiles).forEach((l) => map.hasLayer(l) && map.removeLayer(l));
-    (($('satChk') || {}).checked ? tiles.sat : isDark() ? tiles.dark : tiles.light).addTo(map);
+    if (($('satChk') || {}).checked) { tiles.sat.addTo(map); tiles.satLabels.addTo(map); } else (isDark() ? tiles.dark : tiles.light).addTo(map);
   }
   function popupHtml(c) {
     if (c.safety) return `<b>${esc(c.name)}</b>`;
     const p = at(c, state.t);
     return `<b>${esc(c.sail)} · ${esc(shortName(c))}</b><br>${c.division}${c.captain ? ' · ' + esc(c.captain) : ''}<br>` +
-      `At ${clock(state.t)}: ${(p.dtf / 1000).toFixed(1)} km to go<br>Final: ${ordinal(c.place)} in ${dur(c.finish)}`;
+      `At ${clock(state.t)}: ${(p.dtf / 1000).toFixed(1)} km to go` + (racing(c, state.t) ? `, ${spd(speedAt(c, state.t, 300, 0))}` : '') + `<br>Final: ${ordinal(c.place)} in ${dur(c.finish)} (avg ${spd(c.avg)})`;
   }
   function styleBoats() {
     const showLabels = $('labelsChk').checked, showSafety = $('safetyChk').checked;
@@ -308,7 +342,7 @@
       const c = r.c, s = slotOf(c);
       const right = r.done
         ? `<td class="num fin">${r.pos === 1 ? dur(c.finish) : '+' + dur(r.behind)}</td><td class="num tag">Finished</td>`
-        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 ? '–' : pace(r.pace)}</td>`;
+        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : `${r.pace.toFixed(1)}<small class="sub">${(r.pace / KN).toFixed(1)} kn</small>`}</td>`;
       return `<tr class="${s >= 0 ? 'hl' : ''}" data-id="${c.id}"><td>${r.pos}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div>` +
         `<small>${t < 0 ? c.division : r.done ? c.division : (r.p.dtf / 1000).toFixed(1) + ' km to go'}</small></td>${right}</tr>`;
     }).join('');
@@ -328,6 +362,12 @@
       series.gap[c.id] = times.map((t, k) => (racing(c, t) || t === c.finish ? Math.max(0, (at(c, t).dtf - lead[k]) / 1000) : null));
       series.speed[c.id] = times.map((t) => (racing(c, t) && t >= 300 && t <= c.finish - 300 ? speedAt(c, t, 300, 300) : null));
     });
+    if (R.weather) {
+      series.temp = times.map((t) => wxAt(t, 1));
+      series.feels = times.map((t) => wxAt(t, 2));
+      series.wind = times.map((t) => wxAt(t, 3));
+      series.windDir = times.map((t) => wxAt(t, 4, true));
+    }
     series.band = times.map((t, k) => {
       const v = fieldPool.map((c) => series.speed[c.id] && series.speed[c.id][k]).filter((x) => x != null).sort((a, b) => a - b);
       if (v.length < 3) return null;
@@ -340,7 +380,7 @@
   function drawChart(key, opts) {
     const el = $(opts.el), W = el.clientWidth, H = el.clientHeight;
     if (!W) return;
-    const m = { l: 40, r: 12, t: 10, b: 24 };
+    const m = { l: 40, r: opts.right ? 40 : 12, t: opts.units ? 22 : 10, b: 24 };
     const times = series.times;
     const x = (t) => m.l + (t / times[times.length - 1]) * (W - m.l - m.r);
     const yMax = opts.yMax(), yMin = opts.yMin || 0;
@@ -354,6 +394,11 @@
     // grid + y ticks
     s += '<g class="grid">';
     opts.yTicks.forEach((v) => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 6}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`; });
+    if (opts.right) opts.right.ticks.forEach((v) => { const yy = y(opts.right.toLeft(v)); if (yy >= m.t - 1 && yy <= H - m.b + 1) s += `<text x="${W - m.r + 6}" y="${yy + 3.5}" text-anchor="start">${v}</text>`; });
+    if (opts.units) {
+      s += `<text x="${m.l - 6}" y="12" text-anchor="end">${opts.units[0]}</text>`;
+      if (opts.units[1]) s += `<text x="${W - m.r + 6}" y="12" text-anchor="start">${opts.units[1]}</text>`;
+    }
     s += '</g><g class="axis">';
     s += `<line x1="${m.l}" x2="${W - m.r}" y1="${H - m.b}" y2="${H - m.b}"/>`;
     for (let h = 0; h * 3600 <= times[times.length - 1]; h++) {
@@ -378,7 +423,8 @@
         s += `<path d="${path(opts.data[c.id])}" fill="none" stroke="var(--field)" stroke-width="1" opacity="0.8"/>`;
       });
     }
-    selected().slice().reverse().forEach((c) => {
+    if (opts.lines) opts.lines.forEach((ln) => { s += `<path d="${path(ln.arr)}" fill="none" stroke="${ln.stroke}" stroke-width="2.25" stroke-linejoin="round"/>`; });
+    else selected().slice().reverse().forEach((c) => {
       const sl = slotOf(c);
       s += `<path d="${path(opts.data[c.id])}" fill="none" stroke="var(--${SLOT[sl]})" stroke-width="2.25" stroke-linejoin="round"/>`;
     });
@@ -399,7 +445,8 @@
       charts[key].hover.setAttribute('x1', x(times[k])); charts[key].hover.setAttribute('x2', x(times[k]));
       charts[key].hover.setAttribute('visibility', 'visible');
       let h = `<div class="t">${clock(times[k])}</div>`;
-      selected().forEach((c) => {
+      if (opts.lines) opts.lines.forEach((ln) => { h += `<div class="r"><span>${ln.name}</span><b>${ln.arr[k] == null ? '–' : ln.fmt(ln.arr[k], k)}</b></div>`; });
+      else selected().forEach((c) => {
         const v = opts.data[c.id] ? opts.data[c.id][k] : null;
         h += `<div class="r"><span><span class="dot ${SLOT[slotOf(c)]}"></span>${esc(c.sail)} · ${esc(shortName(c)).slice(0, 22)}</span><b>${v == null ? (t > c.finish ? 'Finished' : '–') : opts.fmt(v)}</b></div>`;
       });
@@ -423,7 +470,17 @@
     const sMax = Math.ceil((spAll[Math.floor(spAll.length * 0.995)] || 14) + 0.5);
     const sMin = Math.max(0, Math.floor(spAll[Math.floor(spAll.length * 0.01)] || 0) - 1);
     const st = []; for (let v = Math.ceil(sMin / 2) * 2; v <= sMax; v += 2) st.push(v);
-    drawChart('speed', { el: 'chartSpeed', label: 'Boat speed over the race', data: series.speed, yMin: sMin, yMax: () => sMax, yTicks: st, band: true, fmt: (v) => v.toFixed(1) + ' km/h' });
+    const knT = []; for (let v = Math.ceil(sMin / KN); v <= sMax / KN; v += 1) knT.push(v);
+    drawChart('speed', { el: 'chartSpeed', label: 'Boat speed over the race, km/h and knots', data: series.speed, yMin: sMin, yMax: () => sMax, yTicks: st, band: true, units: ['km/h', 'kn'], right: { ticks: knT, toLeft: (v) => v * KN }, fmt: spd });
+    if (series.temp) {
+      const tv = series.temp.filter((v) => v != null);
+      const lo = Math.floor(Math.min(...tv)) - 1, hi = Math.ceil(Math.max(...tv)) + 1;
+      const tt = []; for (let v = lo + ((2 - (lo % 2)) % 2); v <= hi; v += 2) tt.push(v);
+      drawChart('temp', { el: 'chartTemp', label: 'Outside temperature during the race', yMin: lo, yMax: () => hi, yTicks: tt, units: ['°C', '°F'], right: { ticks: fTicks(lo, hi), toLeft: (f) => (f - 32) / 1.8 },
+        lines: [{ arr: series.temp, stroke: 'var(--temp)', name: 'Temperature', fmt: (v) => `${v.toFixed(1)} °C · ${(v * 1.8 + 32).toFixed(0)} °F` },
+          ...(series.feels ? [{ arr: series.feels, stroke: 'none', name: 'Feels like', fmt: (v) => `${v.toFixed(1)} °C` }] : []),
+          ...(series.wind ? [{ arr: series.wind, stroke: 'none', name: 'Wind', fmt: (v, k) => `${v.toFixed(0)} kn ${compass(series.windDir[k])}` }] : [])] });
+    }
     const leg = selected().map((c) => `<span><i style="background:var(--${SLOT[slotOf(c)]})"></i>${esc(c.sail)} · ${esc(shortName(c))}</span>`).join('');
     $('legGap').innerHTML = leg + '<span><i style="background:var(--field)"></i>Rest of field</span>';
     $('legSpeed').innerHTML = leg + '<span><i style="background:var(--field-band);height:10px"></i>Middle half of field</span><span><i style="background:repeating-linear-gradient(90deg,var(--field) 0 4px,transparent 4px 7px)"></i>Field median</span>';
@@ -454,7 +511,7 @@
     $('slider').value = state.t;
     $('clockTime').textContent = clock(state.t);
     $('clockSub').textContent = state.t < 0 ? `Start in ${dur(-state.t)}` : `Race time ${dur(state.t, true)}`;
-    updateBoats(); renderBoard(); moveCursor();
+    updateBoats(); renderBoard(); moveCursor(); renderWx();
   }
   let last = null;
   function loop(ts) {
@@ -521,6 +578,11 @@
     tMin = -15 * 60;
     tMax = Math.max(...crews.map((c) => c.finish)) + 10 * 60;
     $('courseKm').textContent = R.courseKm.toFixed(1);
+    if (R.weather) {
+      $('wx').hidden = false; $('tempCard').hidden = false;
+      if (R.weather.note) $('tempNote').textContent = R.weather.note;
+      document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Weather: ${esc(R.weather.source)}</p>`);
+    }
     $('dateNote').textContent = R.dateNote;
     const sl = $('slider'); sl.min = tMin; sl.max = tMax; sl.step = 15;
     computeResults();

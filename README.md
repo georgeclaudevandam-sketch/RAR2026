@@ -33,6 +33,7 @@ To rebuild `data/race.json` from the raw files:
 ```
 python3 tools/decode_yb_positions.py
 python3 tools/build_race_json.py
+python3 tools/build_weather.py   # adds race-day weather from data/raw/weather_open-meteo.csv
 ```
 
 Gate times are interpolated from the GPS track, which records positions about once a minute.

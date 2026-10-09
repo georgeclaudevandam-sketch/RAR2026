@@ -50,6 +50,7 @@
       <div class="controls" aria-label="Replay controls">
         <button id="playBtn" class="btn primary" aria-label="Play">▶</button>
         <div class="clock"><span id="clockTime">07:00</span><span id="clockSub">Start</span></div>
+        <div class="wx" id="wx" hidden><span id="wxTemp"></span><span id="wxSub"></span></div>
         <input id="slider" type="range" min="0" max="1" step="1" aria-label="Race time">
         <label class="speed"><span class="vh">Replay speed</span>
           <select id="speedSel">
@@ -64,7 +65,7 @@
         <label><input type="checkbox" id="trailsChk" checked> Trails</label>
         <label><input type="checkbox" id="labelsChk" checked> Sail numbers</label>
         <label><input type="checkbox" id="safetyChk"> Safety launches</label>
-        <label><input type="checkbox" id="satChk"> Satellite</label>
+        <label><input type="checkbox" id="satChk" checked> Satellite</label>
       </div>
     </div>
     <aside class="board" aria-label="Leaderboard at the selected time">
@@ -73,10 +74,10 @@
         <span class="muted" id="boardTime"></span>
       </div>
       <table class="lb">
-        <thead><tr><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">Pace</th></tr></thead>
+        <thead><tr><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">km/h · kn</th></tr></thead>
         <tbody id="lbBody"></tbody>
       </table>
-      <p class="note">Behind = time since the leader was at the same point on the course. Pace = last 5 min, per 500 m.</p>
+      <p class="note">Behind = time since the leader was at the same point on the course. Speed = average over the last 5 minutes, in km/h with knots below.</p>
     </aside>
   </section>
 
@@ -92,11 +93,17 @@
     <figure class="card">
       <figcaption>
         <h2>Boat speed</h2>
-        <p class="muted">10-minute rolling average, km/h. The shaded band is the middle half of the field.</p>
+        <p class="muted">10-minute rolling average, in km/h (left scale) and knots (right scale). The shaded band is the middle half of the field.</p>
       </figcaption>
       <div class="legend" id="legSpeed"></div>
       <div class="chart" id="chartSpeed"></div>
     </figure>
+  </section>
+
+  <section class="card" id="tempCard" hidden>
+    <h2>Outside temperature</h2>
+    <p class="muted" id="tempNote">Hourly air temperature over Salt Spring Island on race day, in °C (left scale) and °F (right scale). Hover for wind.</p>
+    <div class="chart short" id="chartTemp"></div>
   </section>
 
   <section class="card">
