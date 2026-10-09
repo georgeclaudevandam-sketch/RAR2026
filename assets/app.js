@@ -218,8 +218,8 @@
   const boats = {};
   function initMap() {
     map = L.map('map', { zoomSnap: 0.25, preferCanvas: false });
-    tiles.light = L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
-    tiles.dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, attribution: '&copy; OpenStreetMap contributors &copy; CARTO' });
+    tiles.light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
+    tiles.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' });
     tiles.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' });
     setBase();
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setBase);
@@ -234,7 +234,15 @@
       if (isGate) line.bindTooltip(label, { permanent: true, direction: 'center', className: 'gatelabel', offset: [0, -12] });
       else line.bindTooltip(label);
     });
-    map.fitBounds(L.latLngBounds(course).pad(0.04));
+    const bounds = L.latLngBounds(course).pad(0.04);
+    const fit = () => { map.invalidateSize(); map.fitBounds(bounds); };
+    fit();
+    let fitted = false;
+    new ResizeObserver(() => { map.invalidateSize(); if (!fitted) fit(); }).observe($('map'));
+    ['mousedown', 'wheel', 'touchstart'].forEach((ev) => $('map').addEventListener(ev, () => { fitted = true; }, { passive: true }));
+    window.addEventListener('load', () => { if (!fitted) fit(); });
+    const gateLabels = () => $('map').classList.toggle('far', map.getZoom() < 11.5);
+    map.on('zoomend', gateLabels); gateLabels();
 
     [...safety, ...crews].forEach((c) => {
       const trail = L.polyline([], { weight: 2, opacity: 0.8, interactive: false });

@@ -152,6 +152,7 @@ figcaption p, .card > p { margin: 4px 0 8px; font-size: 13px; }
 .boatlabel::before { display: none; }
 .gatelabel { background: rgba(255,255,255,.88); border: 0; color: #333; font-size: 11px; padding: 1px 5px; }
 .leaflet-container { font: inherit; }
+#map.far .gatelabel { display: none; }
 
 .foot { font-size: 12px; color: var(--muted); padding: 8px 0 32px; }
 .foot p { margin: 4px 0; }
