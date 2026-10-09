@@ -184,6 +184,12 @@ for c in R['teams']:
         lat_m = math.radians((tr[hi][1] + tr[lo][1]) / 2)
         ve = (tr[hi][2] - tr[lo][2]) * 111320 * math.cos(lat_m) / dt
         vn = (tr[hi][1] - tr[lo][1]) * 110540 / dt
+        # use the distance actually travelled (cumulative track km), pointed along the chord, so speeds
+        # stay right where the boat turns (a straight chord would cut the corner and understate speed)
+        path = (tr[hi][4] - tr[lo][4]) * 1000 / dt
+        chord = math.hypot(ve, vn)
+        if chord > 0.05:
+            ve, vn = ve * path / chord, vn * path / chord
         ce, cn = field_at(tr[a][1], tr[a][2], tr[a][0])
         sog = math.hypot(ve, vn)
         stw = math.hypot(ve - ce, vn - cn)

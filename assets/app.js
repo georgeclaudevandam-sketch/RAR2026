@@ -693,9 +693,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=16').then((r) => r.json()),
-    fetch('data/currents.json?v=16').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=16').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=17').then((r) => r.json()),
+    fetch('data/currents.json?v=17').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=17').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
