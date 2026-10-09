@@ -357,7 +357,7 @@
     lg.onAdd = () => {
       const d = L.DomUtil.create('div', 'curlegend');
       const ramp = RARCurrents.RAMP.dark;
-      d.innerHTML = '<div class="h">Surface current</div><div class="bar">' + ramp.map((c) => `<i style="background:${c}"></i>`).join('') +
+      d.innerHTML = '<div class="h">Surface current</div><div class="bar">' + ramp.map((c) => `<i style="background:${c.replace(/[\d.]+\)$/, '0.9)')}"></i>`).join('') +
         '</div><div class="lbl"><span>0</span><span>0.5</span><span>1</span><span>2</span><span>3+ kn</span></div>';
       return d;
     };
