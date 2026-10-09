@@ -48,9 +48,10 @@
   const BREAKS_KN = [0.5, 1, 2, 3]; // bucket edges
 
   const CurrentLayer = L.Layer.extend({
-    initialize(data, getTime, getTheme) {
+    initialize(data, getTime, getTheme, getRate) {
       this.field = Field(data);
       this.getTime = getTime;
+      this.getRate = getRate || (() => 1); // race seconds shown per real second (the replay speed)
       this.getTheme = getTheme;
       this.parts = [];
     },
@@ -86,8 +87,10 @@
       const nw = map.containerPointToLatLng([0, 0]), se = map.containerPointToLatLng([size.x, size.y]);
       this.lat = (y) => nw.lat + (se.lat - nw.lat) * (y / size.y);
       this.lon = (x) => nw.lng + (se.lng - nw.lng) * (x / size.x);
-      const zoom = map.getZoom();
-      this.pxPerMs = 3.2 * Math.pow(2, (zoom - 11) * 0.6); // px per frame for 1 m/s
+      // metres per screen pixel at the centre of the view, so streaks move at the true current speed
+      const cx = size.x / 2, cy = size.y / 2;
+      this.mpp = map.distance(map.containerPointToLatLng([cx - 50, cy]), map.containerPointToLatLng([cx + 50, cy])) / 100;
+      this.last = null;
       const count = Math.round(Math.min(3000, Math.max(600, (size.x * size.y) / 170)));
       this.parts = Array.from({ length: count }, () => this._spawn({}, true));
       this.paused = false;
@@ -97,25 +100,30 @@
         p.x = Math.random() * this.w; p.y = Math.random() * this.h;
         if (this.field.at(this.lat(p.y), this.lon(p.x), this.fr || [0, 0, 0])) break;
       }
-      p.age = initial ? Math.floor(Math.random() * 80) : 0;
-      p.max = 70 + Math.floor(Math.random() * 70);
+      p.age = initial ? Math.random() * 5 : 0;      // seconds of real time
+      p.max = 4 + Math.random() * 4;
       return p;
     },
     _step() {
       if (this.paused || !this.ctx) return;
       const ctx = this.ctx, f = this.field;
+      const now = performance.now(), dt = this.last == null ? 1 / 60 : Math.min(0.1, (now - this.last) / 1000);
+      this.last = now;
+      // pixels moved this frame for 1 m/s of current: true speed, sped up by the replay rate
+      const k = (this.getRate() * dt) / this.mpp;
       this.fr = f.frame(this.getTime());
       ctx.globalCompositeOperation = 'destination-in';
-      ctx.fillStyle = 'rgba(0,0,0,0.94)';
+      ctx.fillStyle = `rgba(0,0,0,${Math.exp(-dt / 0.9).toFixed(4)})`;  // trails fade over about a second
       ctx.fillRect(0, 0, this.w, this.h);
       ctx.globalCompositeOperation = 'source-over';
       const ramp = RAMP[this.getTheme()];
       const buckets = ramp.map(() => []);
       for (const p of this.parts) {
-        if (p.age++ > p.max) { this._spawn(p); continue; }
+        p.age += dt;
+        if (p.age > p.max) { this._spawn(p); continue; }
         const v = f.at(this.lat(p.y), this.lon(p.x), this.fr);
         if (!v) { this._spawn(p); continue; }
-        const nx = p.x + v[0] * this.pxPerMs, ny = p.y - v[1] * this.pxPerMs;
+        const nx = p.x + v[0] * k, ny = p.y - v[1] * k;
         const kn = Math.hypot(v[0], v[1]) * KN;
         let b = 0; while (b < BREAKS_KN.length && kn >= BREAKS_KN[b]) b++;
         buckets[b].push(p.x, p.y, nx, ny);

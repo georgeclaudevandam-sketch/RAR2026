@@ -377,9 +377,14 @@
     const q = curLayer.sample(p.lat, p.lon, state.t);
     return q ? `<br>Current here: ${q.kn.toFixed(1)} kn toward ${compass(q.dirTo)} (${q.dirTo.toFixed(0)}°)` : '';
   }
+  function curRateLabel() {
+    const el = $('curRate'); if (!el) return;
+    const o = $('speedSel').selectedOptions[0];
+    el.textContent = `Drifts at true speed × replay rate (${o ? o.textContent : ''})`;
+  }
   function initCurrents() {
     if (!CUR || !window.RARCurrents) return;
-    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'));
+    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed);
     if ($('curChk').checked) curLayer.addTo(map);
     $('curChk').closest('label').hidden = false;
     const lg = L.control({ position: 'bottomleft' });
@@ -387,12 +392,12 @@
       const d = L.DomUtil.create('div', 'curlegend');
       const ramp = RARCurrents.RAMP.dark;
       d.innerHTML = '<div class="h">Surface current</div><div class="bar">' + ramp.map((c) => `<i style="background:${c.replace(/[\d.]+\)$/, '0.9)')}"></i>`).join('') +
-        '</div><div class="lbl"><span>0</span><span>0.5</span><span>1</span><span>2</span><span>3+ kn</span></div>';
+        '</div><div class="lbl"><span>0</span><span>0.5</span><span>1</span><span>2</span><span>3+ kn</span></div><div class="lbl2" id="curRate"></div>';
       return d;
     };
-    lg.addTo(map); curLayer.legend = lg;
+    lg.addTo(map); curLayer.legend = lg; curRateLabel();
     $('curChk').addEventListener('change', (e) => {
-      if (e.target.checked) { curLayer.addTo(map); lg.addTo(map); } else { map.removeLayer(curLayer); lg.remove(); }
+      if (e.target.checked) { curLayer.addTo(map); lg.addTo(map); curRateLabel(); } else { map.removeLayer(curLayer); lg.remove(); }
     });
   }
   function styleBoats() {
@@ -672,7 +677,7 @@
     $('divSel').addEventListener('change', (e) => { state.div = e.target.value; refreshAll(); });
     $('slider').addEventListener('input', (e) => { if (state.playing) togglePlay(false); setTime(+e.target.value); });
     $('playBtn').addEventListener('click', () => togglePlay());
-    $('speedSel').addEventListener('change', (e) => { state.speed = +e.target.value; });
+    $('speedSel').addEventListener('change', (e) => { state.speed = +e.target.value; curRateLabel(); });
     ['trailsChk', 'labelsChk', 'safetyChk'].forEach((id) => $(id).addEventListener('change', () => { styleBoats(); updateBoats(); }));
     $('satChk').addEventListener('change', setBase);
     $('lbBody').addEventListener('click', (e) => {
@@ -687,8 +692,8 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=11').then((r) => r.json()),
-    fetch('data/currents.json?v=11').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=13').then((r) => r.json()),
+    fetch('data/currents.json?v=13').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur]) => {
     R = data; CUR = cur;
     const all = R.teams;
