@@ -17,7 +17,7 @@ local grid angle computed from the cell coordinates.
 Usage: python3 tools/build_currents.py
 The race ran on Sunday 23 Aug 2026; the start (07:00 PDT) is 14:00 UTC, as in the YB timestamps.
 """
-import csv, json, math, sys
+import csv, json, math, os, sys
 from datetime import datetime, timezone
 import numpy as np
 from scipy.spatial import cKDTree
@@ -95,7 +95,8 @@ VN = Uc * np.sin(ANG) + Vc * np.cos(ANG)
 UE[:, ~WATER] = 0; VN[:, ~WATER] = 0
 
 epochs = [datetime.strptime(t.replace('Z', ''), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc).timestamp() for t in tu]
-tsec = [int(e - T0) for e in epochs]
+SHIFT = int(float(os.environ.get('CURRENT_SHIFT_MIN', '0')) * 60)  # model runs late by this much: model time t+SHIFT is shown at race time t
+tsec = [int(e - T0) - SHIFT for e in epochs]
 print('hours in file:', len(tsec), 'from', tu[0], 'to', tu[-1], '-> race seconds', tsec[0], '..', tsec[-1])
 keep = [k for k, t in enumerate(tsec) if -2 * 3600 <= t <= 11 * 3600]
 assert keep, f'No current data during the race. Times in file: {tu[0]} .. {tu[-1]}'
