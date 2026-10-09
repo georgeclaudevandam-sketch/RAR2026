@@ -42,8 +42,8 @@
   }
 
   const RAMP = {
-    dark: ['rgba(134,182,239,0.30)', 'rgba(158,197,244,0.40)', 'rgba(205,226,251,0.52)', 'rgba(235,244,255,0.64)', 'rgba(255,255,255,0.75)'],
-    light: ['rgba(110,150,210,0.30)', 'rgba(57,135,229,0.40)', 'rgba(42,120,214,0.52)', 'rgba(28,92,171,0.64)', 'rgba(13,54,107,0.75)'],
+    dark: ['rgba(134,182,239,0.20)', 'rgba(158,197,244,0.28)', 'rgba(205,226,251,0.37)', 'rgba(235,244,255,0.46)', 'rgba(255,255,255,0.55)'],
+    light: ['rgba(110,150,210,0.20)', 'rgba(57,135,229,0.28)', 'rgba(42,120,214,0.37)', 'rgba(28,92,171,0.46)', 'rgba(13,54,107,0.55)'],
   };
   const BREAKS_KN = [0.5, 1, 2, 3]; // bucket edges
 
@@ -122,7 +122,7 @@
         p.x = nx; p.y = ny;
         if (nx < 0 || ny < 0 || nx > this.w || ny > this.h) this._spawn(p);
       }
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 1.1;
       buckets.forEach((seg, b) => {
         if (!seg.length) return;
         ctx.strokeStyle = ramp[b];
