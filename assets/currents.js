@@ -5,8 +5,22 @@
   'use strict';
   const KN = 1.94384; // m/s -> knots
 
-  function Field(d) {
+  // Real shoreline (OpenStreetMap), 1 bit per ~30 m cell: 1 = water
+  function Coast(c) {
+    if (!c) return null;
+    const bin = atob(c.bits), bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return (lat, lon) => {
+      const j = Math.floor((lat - c.lat0) / c.dlat), i = Math.floor((lon - c.lon0) / c.dlon);
+      if (j < 0 || i < 0 || j >= c.nLat || i >= c.nLon) return false;
+      const k = j * c.nLon + i;
+      return (bytes[k >> 3] >> (7 - (k & 7))) & 1;
+    };
+  }
+
+  function Field(d, coast) {
     const g = d.grid, n = g.nLat * g.nLon;
+    const isWater = Coast(coast);
     const mask = new Uint8Array(n);
     for (let i = 0; i < n; i++) mask[i] = d.mask.charCodeAt(i) === 49;
     const U = d.u.map((a) => Int16Array.from(a)), V = d.v.map((a) => Int16Array.from(a));
@@ -25,13 +39,13 @@
       const j = Math.floor(fy), i = Math.floor(fx);
       if (j < 0 || i < 0 || j >= g.nLat - 1 || i >= g.nLon - 1) return null;
       const ay = fy - j, ax = fx - i;
-      const near = (Math.round(fy) * g.nLon + Math.round(fx));
-      if (!mask[near]) return null;
+      if (isWater) { if (!isWater(lat, lon)) return null; }
+      else if (!mask[Math.round(fy) * g.nLon + Math.round(fx)]) return null;
       const cells = [[j * g.nLon + i, (1 - ay) * (1 - ax)], [j * g.nLon + i + 1, (1 - ay) * ax], [(j + 1) * g.nLon + i, ay * (1 - ax)], [(j + 1) * g.nLon + i + 1, ay * ax]];
       let e = 0, nn = 0, w = 0;
       const [k0, k1, f] = fr;
       for (const [c, cw] of cells) {
-        if (!mask[c]) continue;
+        if (!isWater && !mask[c]) continue;
         e += cw * (U[k0][c] * (1 - f) + U[k1][c] * f);
         nn += cw * (V[k0][c] * (1 - f) + V[k1][c] * f);
         w += cw;
@@ -48,8 +62,8 @@
   const BREAKS_KN = [0.5, 1, 2, 3]; // bucket edges
 
   const CurrentLayer = L.Layer.extend({
-    initialize(data, getTime, getTheme, getRate) {
-      this.field = Field(data);
+    initialize(data, getTime, getTheme, getRate, coast) {
+      this.field = Field(data, coast);
       this.getTime = getTime;
       this.getRate = getRate || (() => 1); // race seconds shown per real second (the replay speed)
       this.getTheme = getTheme;
@@ -96,7 +110,7 @@
       this.paused = false;
     },
     _spawn(p, initial) {
-      for (let tries = 0; tries < 20; tries++) {
+      for (let tries = 0; tries < 40; tries++) {
         p.x = Math.random() * this.w; p.y = Math.random() * this.h;
         if (this.field.at(this.lat(p.y), this.lon(p.x), this.fr || [0, 0, 0])) break;
       }

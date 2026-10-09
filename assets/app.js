@@ -14,7 +14,7 @@
 
   let R, crews, safety, byId, tMin, tMax, map, tiles = {};
   const state = { t: 0, focus: null, cmp: [null, null], div: 'All', playing: false, speed: 300, speedMode: 'sog' };
-  let CUR = null, curLayer = null; // currents (optional)
+  let CUR = null, COAST = null, curLayer = null; // currents (optional)
   const hasCur = () => !!(R && R.currentsDay);
 
   /* ---------- formatting ---------- */
@@ -384,8 +384,8 @@
   }
   function initCurrents() {
     if (!CUR || !window.RARCurrents) return;
-    document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Currents: ${esc(CUR.source)} Model currents are approximate, especially in the inner channels.</p>`);
-    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed);
+    document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Currents: ${esc(CUR.source)} Model currents are approximate, especially in the inner channels.${COAST ? ' Shoreline for the current animation: © OpenStreetMap contributors (ODbL).' : ''}</p>`);
+    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed, COAST);
     if ($('curChk').checked) curLayer.addTo(map);
     $('curChk').closest('label').hidden = false;
     const lg = L.control({ position: 'bottomleft' });
@@ -693,10 +693,11 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=14').then((r) => r.json()),
-    fetch('data/currents.json?v=14').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-  ]).then(([data, cur]) => {
-    R = data; CUR = cur;
+    fetch('data/race.json?v=15').then((r) => r.json()),
+    fetch('data/currents.json?v=15').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=15').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]).then(([data, cur, coast]) => {
+    R = data; CUR = cur; COAST = coast;
     const all = R.teams;
     crews = all.filter((c) => !c.safety && c.finish != null);
     safety = all.filter((c) => c.safety);

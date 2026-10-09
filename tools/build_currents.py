@@ -129,9 +129,10 @@ cur = {
              'nLat': len(glat), 'nLon': len(glon)},
     'times': [int(t) for t in FT],
     'mask': ''.join('1' if m else '0' for m in mask.ravel()),
-    # cm/s integers, row-major from the south-west corner; land cells hold 0
-    'u': [[int(round(v * 100)) if m else 0 for v, m in zip(f.ravel(), mask.ravel())] for f in FU],
-    'v': [[int(round(v * 100)) if m else 0 for v, m in zip(f.ravel(), mask.ravel())] for f in FV],
+    # cm/s integers, row-major from the south-west corner. Cells on the model's land are filled from the
+    # nearest model water cells, so the map can clip to the real (OpenStreetMap) shoreline instead.
+    'u': [[int(round(v * 100)) for v in f.ravel()] for f in FU],
+    'v': [[int(round(v * 100)) for v in f.ravel()] for f in FV],
 }
 json.dump(cur, open('data/currents.json', 'w'), separators=(',', ':'))
 mx = np.sqrt(FU ** 2 + FV ** 2)[:, mask].max()
