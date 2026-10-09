@@ -88,7 +88,7 @@ select, .btn {
 .statshead { display: flex; align-items: baseline; gap: 10px; margin: 0 0 6px; }
 .statshead h2 { font-size: 14px; }
 .statshead .muted { font-size: 12px; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; margin-bottom: 16px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; margin-bottom: 16px; }
 .stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 9px 11px; min-width: 0; }
 .stat .k { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .stat .v { font-size: 18px; font-weight: 650; margin-top: 1px; font-variant-numeric: tabular-nums; white-space: nowrap; }
