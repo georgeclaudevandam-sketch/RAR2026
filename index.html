@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=15">
+<link rel="stylesheet" href="assets/style.css?v=16">
 </head>
 <body>
 <header class="masthead">
@@ -76,10 +76,10 @@
         <span class="muted" id="boardTime"></span>
       </div>
       <table class="lb">
-        <thead><tr><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">km/h · kn</th></tr></thead>
+        <thead><tr id="lbHead"><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">Speed<br>km/h</th></tr></thead>
         <tbody id="lbBody"></tbody>
       </table>
-      <p class="note">Behind = time since the leader was at the same point on the course. Speed = average over the last 5 minutes, km/h · knots. "Water" is speed through the water, with the current taken out.</p>
+      <p class="note">Behind = time since the leader was at the same point on the course. Speed = speed over the ground, averaged over the last 5 minutes. Thru water = the same with the current taken out.</p>
     </aside>
   </section>
 
@@ -136,7 +136,7 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/currents.js?v=15"></script>
-<script src="assets/app.js?v=15"></script>
+<script src="assets/currents.js?v=16"></script>
+<script src="assets/app.js?v=16"></script>
 </body>
 </html>

@@ -445,8 +445,8 @@
     $('lbBody').innerHTML = rows.map((r) => {
       const c = r.c, s = slotOf(c);
       const right = r.done
-        ? `<td class="num fin">${r.pos === 1 ? dur(c.finish) : '+' + dur(r.behind)}</td><td class="num tag">Finished</td>`
-        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : `${r.pace.toFixed(1)} · ${(r.pace / KN).toFixed(1)}` + (r.stw != null ? `<small class="sub">water ${r.stw.toFixed(1)} · ${(r.stw / KN).toFixed(1)}</small>` : '')}</td>`;
+        ? `<td class="num fin">${r.pos === 1 ? dur(c.finish) : '+' + dur(r.behind)}</td><td class="num tag">Finished</td>${hasCur() ? '<td></td>' : ''}`
+        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : r.pace.toFixed(1)}</td>${hasCur() ? `<td class="num">${t <= 0 || r.stw == null ? '–' : r.stw.toFixed(1)}</td>` : ''}`;
       return `<tr class="${s >= 0 ? 'hl' : ''}" data-id="${c.id}"><td>${r.pos}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div>` +
         `<small>${t < 0 ? c.division : r.done ? c.division : (r.p.dtf / 1000).toFixed(1) + ' km to go'}</small></td>${right}</tr>`;
     }).join('');
@@ -693,9 +693,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=15').then((r) => r.json()),
-    fetch('data/currents.json?v=15').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=15').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=16').then((r) => r.json()),
+    fetch('data/currents.json?v=16').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=16').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
@@ -706,6 +706,7 @@
     tMax = Math.max(...crews.map((c) => c.finish)) + 10 * 60;
     $('courseKm').textContent = R.courseKm.toFixed(1);
     if (hasCur()) $('speedModes').hidden = false;
+    if (hasCur()) $('lbHead').innerHTML = '<th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">Speed<br>km/h</th><th class="num">Thru water<br>km/h</th>';
     if (R.weather) {
       $('wx').hidden = false; $('tempCard').hidden = false;
       if (R.weather.note) $('tempNote').textContent = R.weather.note;
