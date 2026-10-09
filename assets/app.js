@@ -384,6 +384,7 @@
   }
   function initCurrents() {
     if (!CUR || !window.RARCurrents) return;
+    document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Currents: ${esc(CUR.source)} Model currents are approximate, especially in the inner channels.</p>`);
     curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed);
     if ($('curChk').checked) curLayer.addTo(map);
     $('curChk').closest('label').hidden = false;
@@ -692,8 +693,8 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=13').then((r) => r.json()),
-    fetch('data/currents.json?v=13').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=14').then((r) => r.json()),
+    fetch('data/currents.json?v=14').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur]) => {
     R = data; CUR = cur;
     const all = R.teams;

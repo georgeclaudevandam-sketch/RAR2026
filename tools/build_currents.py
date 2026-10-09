@@ -95,7 +95,9 @@ VN = Uc * np.sin(ANG) + Vc * np.cos(ANG)
 UE[:, ~WATER] = 0; VN[:, ~WATER] = 0
 
 epochs = [datetime.strptime(t.replace('Z', ''), '%Y-%m-%dT%H:%M:%S').replace(tzinfo=timezone.utc).timestamp() for t in tu]
-SHIFT = int(float(os.environ.get('CURRENT_SHIFT_MIN', '0')) * 60)  # model runs late by this much: model time t+SHIFT is shown at race time t
+# The model ran about an hour late on this course vs. race-day observations (south shore against at 07:00,
+# northward push up the west side after rounding), so by default model time t+60 min is shown at race time t.
+SHIFT = int(float(os.environ.get('CURRENT_SHIFT_MIN', '60')) * 60)  # model runs late by this much: model time t+SHIFT is shown at race time t
 tsec = [int(e - T0) - SHIFT for e in epochs]
 print('hours in file:', len(tsec), 'from', tu[0], 'to', tu[-1], '-> race seconds', tsec[0], '..', tsec[-1])
 keep = [k for k, t in enumerate(tsec) if -2 * 3600 <= t <= 11 * 3600]
@@ -122,7 +124,7 @@ FU = np.array(frames_u); FV = np.array(frames_v); FT = np.array([tsec[k] for k i
 
 cur = {
     'source': 'SalishSeaCast (UBC) hourly surface currents, model run V21-11, top layer (0.5 m), '
-              'for Sunday 23 August 2026.',
+              'for Sunday 23 August 2026' + (f', shifted {SHIFT // 60} min earlier to match race-day observations' if SHIFT else '') + '.',
     'grid': {'lat0': float(glat[0]), 'lon0': float(glon[0]), 'dlat': GRID['dlat'], 'dlon': GRID['dlon'],
              'nLat': len(glat), 'nLon': len(glon)},
     'times': [int(t) for t in FT],
