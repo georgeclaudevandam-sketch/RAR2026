@@ -569,7 +569,7 @@
     let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawCharts, 120); }).observe($('chartGap'));
   }
 
-  fetch('data/race.json').then((r) => r.json()).then((data) => {
+  fetch('data/race.json?v=4').then((r) => r.json()).then((data) => {
     R = data;
     const all = R.teams;
     crews = all.filter((c) => !c.safety && c.finish != null);
