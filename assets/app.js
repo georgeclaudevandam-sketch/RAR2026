@@ -13,7 +13,7 @@
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   let R, crews, safety, byId, tMin, tMax, map, tiles = {};
-  const state = { t: 3 * 3600, focus: null, cmp: [null, null], div: 'All', playing: false, speed: 300, speedMode: 'sog' };
+  const state = { t: 0, focus: null, cmp: [null, null], div: 'All', playing: false, speed: 300, speedMode: 'sog' };
   let CUR = null, curLayer = null; // currents (optional)
   const hasCur = () => !!(R && R.currentsDay);
 
@@ -98,8 +98,8 @@
   const selected = () => [state.focus, ...state.cmp].filter((x) => x != null).map((id) => byId[id]);
 
   /* ---------- leaderboard at time t ---------- */
-  function standings(t) {
-    const pool = crews.filter(inDiv);
+  function standings(t, poolIn) {
+    const pool = poolIn || crews.filter(inDiv);
     const rows = pool.map((c) => {
       const p = at(c, t);
       const done = c.finish != null && t >= c.finish;
@@ -199,32 +199,61 @@
   }
 
   /* ---------- stats tiles ---------- */
+  function stwMean(c, t0, t1) { // time-weighted speed through the water between t0 and t1
+    const tr = c.track; let sum = 0, w = 0;
+    for (let a = 1; a < tr.length; a++) {
+      const lo = Math.max(tr[a - 1][0], t0), hi = Math.min(tr[a][0], t1);
+      if (hi <= lo || tr[a][7] == null) continue;
+      sum += (hi - lo) * tr[a][7]; w += hi - lo;
+    }
+    return w ? sum / w : null;
+  }
+  // Tiles follow the replay clock: everything is "so far" until the crew finishes, then final.
   function renderStats() {
-    const c = byId[state.focus];
-    const legs = legTimes(c);
-    const ranks = legRanks();
+    const c = byId[state.focus], t = state.t;
+    const pre = t < 0, done = t >= c.finish, tt = Math.max(0, Math.min(t, c.finish));
+    const tag = pre ? 'Before the start' : done ? 'Final' : 'So far';
+    const all = standings(t, crews), me = all.find((r) => r.c.id === c.id);
+    const divRows = all.filter((r) => r.c.division === c.division);
+    const divPos = divRows.findIndex((r) => r.c.id === c.id) + 1;
+    const tiles = [];
+    tiles.push(['Position', pre ? '–' : `${me.pos}<small class="muted"> / ${crews.length}</small>`,
+      pre ? `Start at ${clock(0)}` : `${c.division}: ${divPos} of ${divRows.length}${done ? ' · final' : ''}`]);
+    tiles.push([done ? 'Finish time' : 'Race time', pre ? `−${dur(-t)}` : dur(tt),
+      pre ? 'Until the start' : done ? `Crossed at ${clock(c.finish, true)}` : `${((at(c, t).dtf) / 1000).toFixed(1)} km to go`]);
+    const leadName = all[0] ? esc(shortName(all[0].c)) : '';
+    tiles.push([done ? 'Behind the winner' : 'Behind the leader', pre ? '–' : me.pos === 1 ? (done ? 'Winner' : 'Leading') : me.behind == null ? '–' : '+' + dur(me.behind),
+      pre ? '' : me.pos === 1 ? (done ? 'First to finish' : 'In front of the whole fleet') : `${done ? 'Winner' : 'Leader'}: ${leadName}`]);
+    const progKm = Math.max(0, R.courseKm - at(c, tt).dtf / 1000);
+    const avg = tt > 120 ? (done ? c.avg : progKm / (tt / 3600)) : null;
+    tiles.push(['Average speed', avg == null ? '–' : `${avg.toFixed(2)}<small class="muted"> km/h</small>`,
+      avg == null ? 'Along the course' : `${(avg / KN).toFixed(2)} kn · ${pace(avg)} per 500 m`]);
+    if (hasCur()) {
+      const sw = tt > 120 ? stwMean(c, 0, tt) : null;
+      tiles.push(['Speed through the water', sw == null ? '–' : `${sw.toFixed(2)}<small class="muted"> km/h</small>`,
+        sw == null ? 'With the current taken out' : `${(sw / KN).toFixed(2)} kn, current taken out`]);
+    }
+    const rowed = at(c, tt).km - at(c, 0).km;
+    tiles.push(['GPS distance rowed', `${rowed.toFixed(1)}<small class="muted"> km</small>`, done ? 'Start to finish, from the tracker' : 'From the tracker']);
+    const legs = legTimes(c), ranks = legRanks(), ends = [...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
     let best = null;
-    legs.forEach((v, k) => { const rk = ranks[k][c.id]; if (rk && (!best || rk < best.rk)) best = { k, rk }; });
-    const tiles = [
-      ['Overall', `${c.place}<small class="muted"> / ${crews.length}</small>`, `${c.division}: ${c.divPlace} of ${c.divCount}`],
-      ['Finish time', dur(c.finish), `Crossed at ${clock(c.finish, true)}`],
-      ['Behind the winner', c.behindWinner ? dur(c.behindWinner) : 'Winner', c.place === 1 ? 'First to finish' : `Winner: ${esc(shortName(crews.find((x) => x.place === 1)))}`],
-      ['Average speed', `${c.avg.toFixed(2)}<small class="muted"> km/h</small>`, `${(c.avg / KN).toFixed(2)} kn · ${pace(c.avg)} per 500 m`],
-      ['GPS distance rowed', `${c.rowedKm.toFixed(1)}<small class="muted"> km</small>`, 'Start to finish, from the tracker'],
-      ['Best leg', best ? `${ordinal(best.rk)}` : '–', best ? legNames()[best.k] : ''],
-    ];
-    if (hasCur() && c.gain != null) {
-      tiles.splice(4, 0, ['Speed through the water', `${c.stwAvg.toFixed(2)}<small class="muted"> km/h</small>`, `${(c.stwAvg / KN).toFixed(2)} kn, with the current taken out`]);
-      const m = Math.abs(c.gain) / 60;
-      tiles.push(['Effect of the current', `${c.gain >= 0 ? '+' : '−'}${m.toFixed(1)}<small class="muted"> min</small>`, c.gain >= 0 ? `Net help; average ${spd(Math.abs(c.along))} with you` : `Net cost; average ${spd(Math.abs(c.along))} against you`]);
+    legs.forEach((v, k) => { if (ends[k] == null || ends[k] > tt) return; const rk = ranks[k][c.id]; if (rk && (!best || rk < best.rk)) best = { k, rk }; });
+    tiles.push(['Best leg', best ? ordinal(best.rk) : '–', best ? legNames()[best.k] : 'After the first gate']);
+    if (hasCur()) {
+      const g = curGain(c, 0, tt), m = Math.abs(g.gain) / 60;
+      tiles.push(['Effect of the current', tt < 120 ? '–' : `${g.gain >= 0 ? '+' : '−'}${m.toFixed(1)}<small class="muted"> min</small>`,
+        tt < 120 || g.along == null ? 'Time given or taken' : `${g.gain >= 0 ? 'Net help' : 'Net cost'} · avg ${(Math.abs(g.along) / KN).toFixed(2)} kn ${g.along >= 0 ? 'with' : 'against'}`]);
     }
     if (R.weather) {
-      const temps = []; for (let t = 0; t <= c.finish; t += 600) { const v = wxAt(t, 1); if (v != null) temps.push(v); }
-      if (temps.length) {
-        const lo = Math.min(...temps), hi = Math.max(...temps);
-        tiles.push(['Temperature on the water', `${lo.toFixed(0)}–${hi.toFixed(0)}<small class="muted"> °C</small>`, `${(lo * 1.8 + 32).toFixed(0)}–${(hi * 1.8 + 32).toFixed(0)} °F while you were racing`]);
+      const now = wxAt(t, 1), temps = [];
+      for (let x = 0; x <= Math.max(tt, 0); x += 600) { const v = wxAt(x, 1); if (v != null) temps.push(v); }
+      if (now != null) {
+        const lo = Math.min(...temps, now), hi = Math.max(...temps, now);
+        tiles.push(['Temperature', `${now.toFixed(1)}<small class="muted"> °C</small>`,
+          `${(now * 1.8 + 32).toFixed(0)} °F · ${pre ? 'at the start' : `range ${lo.toFixed(0)}–${hi.toFixed(0)} °C`}`]);
       }
     }
+    $('statsTag').textContent = `${esc(c.sail)} · ${shortName(c)} · ${tag.toLowerCase()} at ${clock(t)}`;
     $('stats').innerHTML = tiles.map(([k, v, d]) => `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`).join('');
   }
   const ordinal = (n) => n + (['th', 'st', 'nd', 'rd'][(n % 100 - 20) % 10] || ['th', 'st', 'nd', 'rd'][n % 100] || 'th');
@@ -594,7 +623,7 @@
     $('slider').value = state.t;
     $('clockTime').textContent = clock(state.t);
     $('clockSub').textContent = state.t < 0 ? `Start in ${dur(-state.t)}` : `Race time ${dur(state.t, true)}`;
-    updateBoats(); renderBoard(); moveCursor(); renderWx();
+    updateBoats(); renderBoard(); moveCursor(); renderWx(); renderStats();
   }
   let last = null;
   function loop(ts) {
@@ -658,8 +687,8 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=7').then((r) => r.json()),
-    fetch('data/currents.json?v=7').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=11').then((r) => r.json()),
+    fetch('data/currents.json?v=11').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur]) => {
     R = data; CUR = cur;
     const all = R.teams;
