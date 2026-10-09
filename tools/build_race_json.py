@@ -2,7 +2,7 @@ import json, math
 S=json.loads(open('data/raw/RaceSetup.json','rb').read().decode('cp1252'))
 L=json.loads(open('data/raw/leaderboard.json','rb').read().decode('cp1252'))
 P={int(k):v for k,v in json.load(open('data/raw/positions.json')).items()}
-DAY_SHIFT=86400  # YB lists Sat Aug 22; regatta was Sun Aug 23
+DAY_SHIFT=0  # YB timestamps are already Sunday 23 Aug 2026 (07:00 PDT start = 14:00 UTC)
 T0=1787493600    # official start 07:00 PDT
 def hav(a,b,c,d):
     R=6371.0088;p1,p2=math.radians(a),math.radians(c);dp=p2-p1;dl=math.radians(d-b)
@@ -64,7 +64,6 @@ for tm in S['teams']:
 course=[[round(n['lat'],6),round(n['lon'],6),n.get('name')] for n in S['course']['nodes']]
 out={'title':S['title'],'source':'https://yb.tl/rar2026','raceStartEpoch':T0+DAY_SHIFT,'tz':'America/Vancouver',
      'courseKm':round(L['tags'][0]['teams'][0]['d24']/1000,2) if 'd24' in L['tags'][0]['teams'][0] else None,
-     'dateNote':'YB Tracking lists this race on Saturday 22 Aug 2026; the regatta was held Sunday 23 Aug 2026 (RegattaCentral). Times are shown on Sunday 23 Aug; clock times are unchanged.',
      'gates':gates,'course':course,'teams':teams}
 json.dump(out,open('data/race.json','w'),separators=(',',':'))
 import os;print('bytes',os.path.getsize('data/race.json'))

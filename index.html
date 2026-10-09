@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=5">
+<link rel="stylesheet" href="assets/style.css?v=6">
 </head>
 <body>
 <header class="masthead">
@@ -66,6 +66,7 @@
         <label><input type="checkbox" id="labelsChk" checked> Sail numbers</label>
         <label><input type="checkbox" id="safetyChk"> Safety launches</label>
         <label><input type="checkbox" id="satChk" checked> Satellite</label>
+        <label hidden><input type="checkbox" id="curChk" checked> Currents</label>
       </div>
     </div>
     <aside class="board" aria-label="Leaderboard at the selected time">
@@ -77,7 +78,7 @@
         <thead><tr><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">km/h · kn</th></tr></thead>
         <tbody id="lbBody"></tbody>
       </table>
-      <p class="note">Behind = time since the leader was at the same point on the course. Speed = average over the last 5 minutes, in km/h with knots below.</p>
+      <p class="note">Behind = time since the leader was at the same point on the course. Speed = average over the last 5 minutes, km/h · knots. "Water" is speed through the water, with the current taken out.</p>
     </aside>
   </section>
 
@@ -92,8 +93,11 @@
     </figure>
     <figure class="card">
       <figcaption>
-        <h2>Boat speed</h2>
-        <p class="muted">10-minute rolling average, in km/h (left scale) and knots (right scale). The shaded band is the middle half of the field.</p>
+        <h2 id="speedTitle">Boat speed over the ground</h2>
+        <p class="muted" id="speedNote">10-minute rolling average, in km/h (left scale) and knots (right scale). The shaded band is the middle half of the field.</p>
+        <div class="seg" id="speedModes" role="group" aria-label="Speed measure" hidden>
+          <button data-mode="sog" aria-pressed="true">Over ground</button><button data-mode="stw" aria-pressed="false">Through water</button><button data-mode="cur" aria-pressed="false">Current effect</button>
+        </div>
       </figcaption>
       <div class="legend" id="legSpeed"></div>
       <div class="chart" id="chartSpeed"></div>
@@ -104,6 +108,12 @@
     <h2>Outside temperature</h2>
     <p class="muted" id="tempNote">Hourly air temperature over Salt Spring Island on race day, in °C (left scale) and °F (right scale). Hover for wind.</p>
     <div class="chart short" id="chartTemp"></div>
+  </section>
+
+  <section class="card" id="curCard" hidden>
+    <h2>Current effect by leg</h2>
+    <p class="muted">Time the current gave (+) or took (−) on each leg, compared with rowing the same water speed in still water. The small figure is the average current along the boat's track.</p>
+    <div class="tablewrap"><table class="splits" id="curTable"></table></div>
   </section>
 
   <section class="card">
@@ -125,6 +135,7 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/app.js?v=5"></script>
+<script src="assets/currents.js?v=6"></script>
+<script src="assets/app.js?v=6"></script>
 </body>
 </html>

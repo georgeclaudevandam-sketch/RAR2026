@@ -13,7 +13,9 @@
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
   let R, crews, safety, byId, tMin, tMax, map, tiles = {};
-  const state = { t: 3 * 3600, focus: null, cmp: [null, null], div: 'All', playing: false, speed: 300 };
+  const state = { t: 3 * 3600, focus: null, cmp: [null, null], div: 'All', playing: false, speed: 300, speedMode: 'sog' };
+  let CUR = null, curLayer = null; // currents (optional)
+  const hasCur = () => !!(R && R.currentsDay);
 
   /* ---------- formatting ---------- */
   const tzFmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Vancouver', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -60,6 +62,23 @@
     if (t1 - t0 < 60) return null;
     return (at(c, t1).km - at(c, t0).km) / ((t1 - t0) / 3600);
   }
+  function colAvg(c, t, back, fwd, col) { // mean of a track column over [t-back, t+fwd]
+    const tr = c.track; let s = 0, n = 0;
+    for (let i = idxAt(tr, t - back); i < tr.length && tr[i][0] <= t + fwd; i++) {
+      if (tr[i][0] < t - back || tr[i][col] == null) continue; s += tr[i][col]; n++;
+    }
+    return n ? s / n : null;
+  }
+  function curGain(c, t0, t1) { // seconds gained (+) or lost (-) to the current between t0 and t1
+    const tr = c.track; let g = 0, along = 0, w = 0;
+    for (let a = 1; a < tr.length; a++) {
+      const lo = Math.max(tr[a - 1][0], t0), hi = Math.min(tr[a][0], t1);
+      if (hi <= lo || tr[a][6] == null || tr[a][7] == null) continue;
+      const sog = tr[a][6], stw = tr[a][7];
+      if (stw > 2 && sog > 2) { g += (hi - lo) * (sog / stw - 1); along += (hi - lo) * tr[a][8]; w += hi - lo; }
+    }
+    return { gain: g, along: w ? along / w : null };
+  }
   function timeAtDtf(c, d) { // first time after the start that crew c was within d metres of the finish
     const tr = c.track;
     for (let i = 1; i < tr.length; i++) {
@@ -100,6 +119,7 @@
       const lt = timeAtDtf(lead.c, r.p.dtf);
       r.behind = lt == null ? null : t - lt;
       r.pace = speedAt(r.c, t, 300, 0);
+      r.stw = hasCur() ? colAvg(r.c, t, 300, 0, 7) : null;
     });
     return rows;
   }
@@ -137,6 +157,7 @@
       c.divCount = crews.filter((x) => x.division === c.division).length;
       c.rowedKm = at(c, c.finish).km - at(c, 0).km;
       c.avg = R.courseKm / (c.finish / 3600);
+      if (hasCur()) { const g = curGain(c, 0, c.finish); c.gain = g.gain; c.along = g.along; c.stwAvg = colAvg(c, c.finish / 2, c.finish / 2, c.finish / 2, 7); }
     });
   }
 
@@ -192,6 +213,11 @@
       ['GPS distance rowed', `${c.rowedKm.toFixed(1)}<small class="muted"> km</small>`, 'Start to finish, from the tracker'],
       ['Best leg', best ? `${ordinal(best.rk)}` : '–', best ? legNames()[best.k] : ''],
     ];
+    if (hasCur() && c.gain != null) {
+      tiles.splice(4, 0, ['Speed through the water', `${c.stwAvg.toFixed(2)}<small class="muted"> km/h</small>`, `${(c.stwAvg / KN).toFixed(2)} kn, with the current taken out`]);
+      const m = Math.abs(c.gain) / 60;
+      tiles.push(['Effect of the current', `${c.gain >= 0 ? '+' : '−'}${m.toFixed(1)}<small class="muted"> min</small>`, c.gain >= 0 ? `Net help; average ${spd(Math.abs(c.along))} with you` : `Net cost; average ${spd(Math.abs(c.along))} against you`]);
+    }
     if (R.weather) {
       const temps = []; for (let t = 0; t <= c.finish; t += 600) { const v = wxAt(t, 1); if (v != null) temps.push(v); }
       if (temps.length) {
@@ -235,6 +261,26 @@
       h += `<td class="num">${dur(c.finish)}</td></tr>`;
     });
     $('splitsTable').innerHTML = h + '</tbody>';
+  }
+  function renderCurLegs() {
+    if (!hasCur()) return;
+    $('curCard').hidden = false;
+    const names = legNames(), sel = selected();
+    const bounds = (c) => [0, ...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
+    let h = '<thead><tr><th>Leg</th>' + sel.map((c) => `<th class="num"><span class="crew" style="justify-content:flex-end"><span class="dot ${SLOT[slotOf(c)]}"></span>${esc(c.sail)}</span></th>`).join('') + '</tr></thead><tbody>';
+    const tot = sel.map(() => 0);
+    names.forEach((n, k) => {
+      h += `<tr><td>${esc(n)}</td>`;
+      sel.forEach((c, ci) => {
+        const b = bounds(c);
+        if (b[k] == null || b[k + 1] == null) { h += '<td class="num">–</td>'; return; }
+        const g = curGain(c, b[k], b[k + 1]); tot[ci] += g.gain;
+        h += `<td class="num">${g.gain >= 0 ? '+' : '−'}${(Math.abs(g.gain) / 60).toFixed(1)} min<small class="sub">${g.along == null ? '' : (g.along >= 0 ? '+' : '−') + (Math.abs(g.along) / KN).toFixed(2) + ' kn'}</small></td>`;
+      });
+      h += '</tr>';
+    });
+    h += '<tr><td><b>Whole race</b></td>' + tot.map((g) => `<td class="num"><b>${g >= 0 ? '+' : '−'}${(Math.abs(g) / 60).toFixed(1)} min</b></td>`).join('') + '</tr>';
+    $('curTable').innerHTML = h + '</tbody>';
   }
   function renderResults() {
     const rows = crews.slice().sort((a, b) => a.place - b.place);
@@ -295,7 +341,30 @@
     if (c.safety) return `<b>${esc(c.name)}</b>`;
     const p = at(c, state.t);
     return `<b>${esc(c.sail)} · ${esc(shortName(c))}</b><br>${c.division}${c.captain ? ' · ' + esc(c.captain) : ''}<br>` +
-      `At ${clock(state.t)}: ${(p.dtf / 1000).toFixed(1)} km to go` + (racing(c, state.t) ? `, ${spd(speedAt(c, state.t, 300, 0))}` : '') + `<br>Final: ${ordinal(c.place)} in ${dur(c.finish)} (avg ${spd(c.avg)})`;
+      `At ${clock(state.t)}: ${(p.dtf / 1000).toFixed(1)} km to go` + (racing(c, state.t) ? `, ${spd(speedAt(c, state.t, 300, 0))}` : '') + curLine(p) + `<br>Final: ${ordinal(c.place)} in ${dur(c.finish)} (avg ${spd(c.avg)})`;
+  }
+  function curLine(p) {
+    if (!curLayer) return '';
+    const q = curLayer.sample(p.lat, p.lon, state.t);
+    return q ? `<br>Current here: ${q.kn.toFixed(1)} kn toward ${compass(q.dirTo)} (${q.dirTo.toFixed(0)}°)` : '';
+  }
+  function initCurrents() {
+    if (!CUR || !window.RARCurrents) return;
+    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'));
+    if ($('curChk').checked) curLayer.addTo(map);
+    $('curChk').closest('label').hidden = false;
+    const lg = L.control({ position: 'bottomleft' });
+    lg.onAdd = () => {
+      const d = L.DomUtil.create('div', 'curlegend');
+      const ramp = RARCurrents.RAMP.dark;
+      d.innerHTML = '<div class="h">Surface current</div><div class="bar">' + ramp.map((c) => `<i style="background:${c}"></i>`).join('') +
+        '</div><div class="lbl"><span>0</span><span>0.5</span><span>1</span><span>2</span><span>3+ kn</span></div>';
+      return d;
+    };
+    lg.addTo(map); curLayer.legend = lg;
+    $('curChk').addEventListener('change', (e) => {
+      if (e.target.checked) { curLayer.addTo(map); lg.addTo(map); } else { map.removeLayer(curLayer); lg.remove(); }
+    });
   }
   function styleBoats() {
     const showLabels = $('labelsChk').checked, showSafety = $('safetyChk').checked;
@@ -342,7 +411,7 @@
       const c = r.c, s = slotOf(c);
       const right = r.done
         ? `<td class="num fin">${r.pos === 1 ? dur(c.finish) : '+' + dur(r.behind)}</td><td class="num tag">Finished</td>`
-        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : `${r.pace.toFixed(1)}<small class="sub">${(r.pace / KN).toFixed(1)} kn</small>`}</td>`;
+        : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : `${r.pace.toFixed(1)} · ${(r.pace / KN).toFixed(1)}` + (r.stw != null ? `<small class="sub">water ${r.stw.toFixed(1)} · ${(r.stw / KN).toFixed(1)}</small>` : '')}</td>`;
       return `<tr class="${s >= 0 ? 'hl' : ''}" data-id="${c.id}"><td>${r.pos}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div>` +
         `<small>${t < 0 ? c.division : r.done ? c.division : (r.p.dtf / 1000).toFixed(1) + ' km to go'}</small></td>${right}</tr>`;
     }).join('');
@@ -357,10 +426,15 @@
     const fieldPool = crews.filter(inDiv);
     const lead = times.map((t) => Math.min(...fieldPool.map((c) => at(c, t).dtf)));
     series.times = times;
-    series.gap = {}; series.speed = {};
+    series.gap = {}; series.sog = {}; series.stw = {}; series.cur = {};
     pool.forEach((c) => {
       series.gap[c.id] = times.map((t, k) => (racing(c, t) || t === c.finish ? Math.max(0, (at(c, t).dtf - lead[k]) / 1000) : null));
-      series.speed[c.id] = times.map((t) => (racing(c, t) && t >= 300 && t <= c.finish - 300 ? speedAt(c, t, 300, 300) : null));
+      const ok = (t) => racing(c, t) && t >= 300 && t <= c.finish - 300;
+      series.sog[c.id] = times.map((t) => (ok(t) ? speedAt(c, t, 300, 300) : null));
+      if (hasCur()) {
+        series.stw[c.id] = times.map((t) => (ok(t) ? colAvg(c, t, 300, 300, 7) : null));
+        series.cur[c.id] = times.map((t) => (ok(t) ? colAvg(c, t, 300, 300, 8) : null));
+      }
     });
     if (R.weather) {
       series.temp = times.map((t) => wxAt(t, 1));
@@ -368,6 +442,8 @@
       series.wind = times.map((t) => wxAt(t, 3));
       series.windDir = times.map((t) => wxAt(t, 4, true));
     }
+    if (!hasCur()) state.speedMode = 'sog';
+    series.speed = series[state.speedMode];
     series.band = times.map((t, k) => {
       const v = fieldPool.map((c) => series.speed[c.id] && series.speed[c.id][k]).filter((x) => x != null).sort((a, b) => a - b);
       if (v.length < 3) return null;
@@ -418,6 +494,7 @@
       });
       s += `<path d="${path(b.map((v) => (v ? v[1] : null)))}" fill="none" stroke="var(--field)" stroke-width="1.5" stroke-dasharray="4 3"/>`;
     }
+    if (opts.zero) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(0)}" y2="${y(0)}" stroke="var(--ink-2)" stroke-width="1"/>`;
     if (opts.fieldLines) {
       crews.filter(inDiv).filter((c) => slotOf(c) < 0).forEach((c) => {
         s += `<path d="${path(opts.data[c.id])}" fill="none" stroke="var(--field)" stroke-width="1" opacity="0.8"/>`;
@@ -467,11 +544,17 @@
     const g = niceTicks(gapMax, 5);
     drawChart('gap', { el: 'chartGap', label: 'Distance behind the leader over the race', data: series.gap, yMax: () => g.max, yTicks: g.ticks, fieldLines: true, fmt: (v) => v.toFixed(2) + ' km' });
     const spAll = Object.values(series.speed).flat().filter((v) => v != null).sort((a, b) => a - b);
-    const sMax = Math.ceil((spAll[Math.floor(spAll.length * 0.995)] || 14) + 0.5);
-    const sMin = Math.max(0, Math.floor(spAll[Math.floor(spAll.length * 0.01)] || 0) - 1);
-    const st = []; for (let v = Math.ceil(sMin / 2) * 2; v <= sMax; v += 2) st.push(v);
+    let sMax = Math.ceil((spAll[Math.floor(spAll.length * 0.995)] || 14) + 0.5);
+    let sMin = Math.max(0, Math.floor(spAll[Math.floor(spAll.length * 0.01)] || 0) - 1);
+    if (state.speedMode === 'cur') { const a = Math.ceil(Math.max(Math.abs(spAll[0] || 1), Math.abs(spAll[spAll.length - 1] || 1)) + 0.2); sMax = a; sMin = -a; }
+    const stp = sMax - sMin > 8 ? 2 : 1;
+    const st = []; for (let v = Math.ceil(sMin / stp) * stp; v <= sMax; v += stp) st.push(v);
     const knT = []; for (let v = Math.ceil(sMin / KN); v <= sMax / KN; v += 1) knT.push(v);
-    drawChart('speed', { el: 'chartSpeed', label: 'Boat speed over the race, km/h and knots', data: series.speed, yMin: sMin, yMax: () => sMax, yTicks: st, band: true, units: ['km/h', 'kn'], right: { ticks: knT, toLeft: (v) => v * KN }, fmt: spd });
+    drawChart('speed', { el: 'chartSpeed', label: 'Boat speed over the race, km/h and knots', data: series.speed, yMin: sMin, yMax: () => sMax, yTicks: st, band: true, units: ['km/h', 'kn'], right: { ticks: knT, toLeft: (v) => v * KN }, zero: state.speedMode === 'cur', fmt: state.speedMode === 'cur' ? (v) => (v >= 0 ? '+' : '−') + spd(Math.abs(v)) + (v >= 0 ? ' with you' : ' against') : spd });
+    const SM = { sog: ['Boat speed over the ground', 'What the GPS saw: 10-minute rolling average, in km/h (left scale) and knots (right scale). The shaded band is the middle half of the field.'],
+      stw: ['Boat speed through the water', 'Speed over the ground with the modelled surface current taken out, so it reflects the crew\'s own effort. km/h (left) and knots (right).'],
+      cur: ['Current along the course', 'How much the current pushed each boat along its track (+) or held it back (−), in km/h (left) and knots (right).'] }[state.speedMode];
+    $('speedTitle').textContent = SM[0]; $('speedNote').textContent = SM[1];
     if (series.temp) {
       const tv = series.temp.filter((v) => v != null);
       const lo = Math.floor(Math.min(...tv)) - 1, hi = Math.ceil(Math.max(...tv)) + 1;
@@ -536,7 +619,7 @@
   /* ---------- re-render on selection change ---------- */
   function refreshAll() {
     writeURL(); syncSelectors();
-    renderStats(); renderSplits(); renderResults();
+    renderStats(); renderSplits(); renderResults(); renderCurLegs();
     styleBoats(); buildSeries(); drawCharts(); setTime(state.t);
   }
 
@@ -551,6 +634,11 @@
       state.cmp[k] = v === state.focus ? null : v;
       if (state.cmp[0] != null && state.cmp[0] === state.cmp[1]) state.cmp[1 - k] = null;
       refreshAll();
+    }));
+    document.querySelectorAll('#speedModes button').forEach((b) => b.addEventListener('click', () => {
+      state.speedMode = b.dataset.mode;
+      document.querySelectorAll('#speedModes button').forEach((x) => x.setAttribute('aria-pressed', x === b));
+      buildSeries(); drawCharts();
     }));
     $('divSel').addEventListener('change', (e) => { state.div = e.target.value; refreshAll(); });
     $('slider').addEventListener('input', (e) => { if (state.playing) togglePlay(false); setTime(+e.target.value); });
@@ -569,8 +657,11 @@
     let rt; new ResizeObserver(() => { clearTimeout(rt); rt = setTimeout(drawCharts, 120); }).observe($('chartGap'));
   }
 
-  fetch('data/race.json?v=5').then((r) => r.json()).then((data) => {
-    R = data;
+  Promise.all([
+    fetch('data/race.json?v=6').then((r) => r.json()),
+    fetch('data/currents.json?v=6').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+  ]).then(([data, cur]) => {
+    R = data; CUR = cur;
     const all = R.teams;
     crews = all.filter((c) => !c.safety && c.finish != null);
     safety = all.filter((c) => c.safety);
@@ -578,17 +669,19 @@
     tMin = -15 * 60;
     tMax = Math.max(...crews.map((c) => c.finish)) + 10 * 60;
     $('courseKm').textContent = R.courseKm.toFixed(1);
+    if (hasCur()) $('speedModes').hidden = false;
     if (R.weather) {
       $('wx').hidden = false; $('tempCard').hidden = false;
       if (R.weather.note) $('tempNote').textContent = R.weather.note;
       document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Weather: ${esc(R.weather.source)}</p>`);
     }
-    $('dateNote').textContent = R.dateNote;
+    if (R.dateNote) $('dateNote').textContent = R.dateNote;
     const sl = $('slider'); sl.min = tMin; sl.max = tMax; sl.step = 15;
     computeResults();
     fillSelectors();
     readURL();
     initMap();
+    initCurrents();
     bind();
     refreshAll();
   }).catch((err) => {

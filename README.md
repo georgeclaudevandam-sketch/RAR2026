@@ -26,8 +26,6 @@ All positions and results come from [YB Tracking](https://yb.tl/rar2026).
 | `data/raw/AllPositions3.bin` | GPS positions for every boat (YB binary format) |
 | `data/race.json` | The processed file the site reads |
 
-**About the date:** YB Tracking lists the race on Saturday 22 August. The regatta was held on Sunday 23 August, as listed on RegattaCentral, so the site shows Sunday. Clock times are unchanged.
-
 To rebuild `data/race.json` from the raw files:
 
 ```

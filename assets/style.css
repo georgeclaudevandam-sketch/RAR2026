@@ -179,3 +179,14 @@ figcaption p, .card > p { margin: 4px 0 8px; font-size: 13px; }
 .chart.short { height: 220px; }
 small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 400; }
 @media (max-width: 560px) { .wx { display: none; } }
+
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 2px 0 8px; }
+.seg button { font: inherit; font-size: 12px; background: var(--surface); color: var(--ink-2); border: 0; padding: 6px 10px; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button[aria-pressed="true"] { background: var(--s1); color: #fff; }
+.current-canvas { position: absolute; left: 0; top: 0; }
+.curlegend { background: rgba(10,20,28,.72); color: #fff; padding: 6px 8px; border-radius: 6px; font-size: 11px; line-height: 1.2; }
+.curlegend .h { font-weight: 650; margin-bottom: 4px; }
+.curlegend .bar { display: flex; height: 6px; border-radius: 3px; overflow: hidden; width: 150px; }
+.curlegend .bar i { flex: 1; }
+.curlegend .lbl { display: flex; justify-content: space-between; width: 150px; margin-top: 2px; opacity: .85; }
