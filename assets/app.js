@@ -211,16 +211,16 @@
   // Tiles follow the replay clock: everything is "so far" until the crew finishes, then final.
   function renderStats() {
     const c = byId[state.focus], t = state.t;
-    const pre = t < 0, done = t >= c.finish, tt = Math.max(0, Math.min(t, c.finish));
-    const tag = pre ? 'Before the start' : done ? 'Final' : 'So far';
+    const pre = t < 120, done = t >= c.finish, tt = Math.max(0, Math.min(t, c.finish));
+    const tag = t < 0 ? 'Before the start' : pre ? 'At the start' : done ? 'Final' : 'So far';
     const all = standings(t, crews), me = all.find((r) => r.c.id === c.id);
     const divRows = all.filter((r) => r.c.division === c.division);
     const divPos = divRows.findIndex((r) => r.c.id === c.id) + 1;
     const tiles = [];
     tiles.push(['Position', pre ? '–' : `${me.pos}<small class="muted"> / ${crews.length}</small>`,
-      pre ? `Start at ${clock(0)}` : `${c.division}: ${divPos} of ${divRows.length}${done ? ' · final' : ''}`]);
-    tiles.push([done ? 'Finish time' : 'Race time', pre ? `−${dur(-t)}` : dur(tt),
-      pre ? 'Until the start' : done ? `Crossed at ${clock(c.finish, true)}` : `${((at(c, t).dtf) / 1000).toFixed(1)} km to go`]);
+      pre ? `Started at ${clock(0)}` : `${c.division}: ${divPos} of ${divRows.length}${done ? ' · final' : ''}`]);
+    tiles.push([done ? 'Finish time' : 'Race time', t < 0 ? `−${dur(-t)}` : dur(tt),
+      t < 0 ? 'Until the start' : done ? `Crossed at ${clock(c.finish, true)}` : `${((at(c, t).dtf) / 1000).toFixed(1)} km to go`]);
     const leadName = all[0] ? esc(shortName(all[0].c)) : '';
     tiles.push([done ? 'Behind the winner' : 'Behind the leader', pre ? '–' : me.pos === 1 ? (done ? 'Winner' : 'Leading') : me.behind == null ? '–' : '+' + dur(me.behind),
       pre ? '' : me.pos === 1 ? (done ? 'First to finish' : 'In front of the whole fleet') : `${done ? 'Winner' : 'Leader'}: ${leadName}`]);
@@ -250,7 +250,7 @@
       if (now != null) {
         const lo = Math.min(...temps, now), hi = Math.max(...temps, now);
         tiles.push(['Temperature', `${now.toFixed(1)}<small class="muted"> °C</small>`,
-          `${(now * 1.8 + 32).toFixed(0)} °F · ${pre ? 'at the start' : `range ${lo.toFixed(0)}–${hi.toFixed(0)} °C`}`]);
+          `${(now * 1.8 + 32).toFixed(0)} °F · ${tt < 1800 ? 'near the start' : `range ${lo.toFixed(1)}–${hi.toFixed(1)} °C`}`]);
       }
     }
     $('statsTag').textContent = `${esc(c.sail)} · ${shortName(c)} · ${tag.toLowerCase()} at ${clock(t)}`;
