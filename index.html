@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Race Around the Rock 2026 · Race Day Analytics</title>
+<meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow">Race day analytics</p>
+    <h1>Race Around the Rock 2026</h1>
+    <p class="sub">Salt Spring Island, BC · Sunday 23 August 2026 · Start &amp; finish Fulford Harbour · <span id="courseKm">87</span> km course</p>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="crewbar" aria-label="Crew selection">
+    <label class="field">
+      <span>Your crew</span>
+      <select id="focusSel"></select>
+    </label>
+    <label class="field">
+      <span>Compare with</span>
+      <select id="cmpSel1"></select>
+    </label>
+    <label class="field">
+      <span>and</span>
+      <select id="cmpSel2"></select>
+    </label>
+    <label class="field">
+      <span>Division</span>
+      <select id="divSel">
+        <option value="All">All crews</option>
+        <option value="Doubles">Doubles</option>
+        <option value="Quads">Quads</option>
+        <option value="Solos">Solos</option>
+      </select>
+    </label>
+  </section>
+
+  <section class="stats" id="stats" aria-label="Your crew at a glance"></section>
+
+  <section class="replay">
+    <div class="mapcol">
+      <div id="map" role="region" aria-label="Race map"></div>
+      <div class="controls" aria-label="Replay controls">
+        <button id="playBtn" class="btn primary" aria-label="Play">▶</button>
+        <div class="clock"><span id="clockTime">07:00</span><span id="clockSub">Start</span></div>
+        <input id="slider" type="range" min="0" max="1" step="1" aria-label="Race time">
+        <label class="speed"><span class="vh">Replay speed</span>
+          <select id="speedSel">
+            <option value="60">1 min/s</option>
+            <option value="300" selected>5 min/s</option>
+            <option value="900">15 min/s</option>
+            <option value="1800">30 min/s</option>
+          </select>
+        </label>
+      </div>
+      <div class="maptoggles">
+        <label><input type="checkbox" id="trailsChk" checked> Trails</label>
+        <label><input type="checkbox" id="labelsChk" checked> Sail numbers</label>
+        <label><input type="checkbox" id="safetyChk"> Safety launches</label>
+        <label><input type="checkbox" id="satChk"> Satellite</label>
+      </div>
+    </div>
+    <aside class="board" aria-label="Leaderboard at the selected time">
+      <div class="boardhead">
+        <h2>Leaderboard</h2>
+        <span class="muted" id="boardTime"></span>
+      </div>
+      <table class="lb">
+        <thead><tr><th>#</th><th>Crew</th><th class="num">Behind</th><th class="num">Pace</th></tr></thead>
+        <tbody id="lbBody"></tbody>
+      </table>
+      <p class="note">Behind = time since the leader was at the same point on the course. Pace = last 5 min, per 500 m.</p>
+    </aside>
+  </section>
+
+  <section class="charts">
+    <figure class="card">
+      <figcaption>
+        <h2>Distance behind the leader</h2>
+        <p class="muted">How far each crew trailed whoever was leading at that moment. Click a chart to move the replay.</p>
+      </figcaption>
+      <div class="legend" id="legGap"></div>
+      <div class="chart" id="chartGap"></div>
+    </figure>
+    <figure class="card">
+      <figcaption>
+        <h2>Boat speed</h2>
+        <p class="muted">10-minute rolling average, km/h. The shaded band is the middle half of the field.</p>
+      </figcaption>
+      <div class="legend" id="legSpeed"></div>
+      <div class="chart" id="chartSpeed"></div>
+    </figure>
+  </section>
+
+  <section class="card">
+    <h2>Leg splits</h2>
+    <p class="muted">Time for each leg between gates, from the 07:00 start. <b>Bold</b> is the fastest leg in the selected division; the small number is the leg rank.</p>
+    <div class="tablewrap"><table class="splits" id="splitsTable"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>Final results</h2>
+    <div class="tablewrap"><table class="results" id="resultsTable"></table></div>
+  </section>
+
+  <footer class="foot">
+    <p>Data: <a href="https://yb.tl/rar2026" target="_blank" rel="noopener">YB Tracking, Race Around the Rock 2026</a>. Positions are recorded about once a minute. Gate times are interpolated from the GPS track.</p>
+    <p id="dateNote"></p>
+  </footer>
+</main>
+
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/app.js"></script>
+</body>
+</html>
