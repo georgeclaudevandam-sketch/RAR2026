@@ -34,11 +34,12 @@ for r in rows[1:]:
                 num(r, 'wind_direction_10m'), num(r, 'cloud_cover')])
 
 m = meta[0] if meta else {}
-lat, lon = m.get('latitude', '48.83'), m.get('longitude', '-123.50')
+lat, lon = round(float(m.get('latitude', 48.83)), 3), round(float(m.get('longitude', -123.50)), 3)
+elev = m.get('elevation')
 day = rows[1][ci['time']].split('T')[0]
 R = json.load(open('data/race.json'))
 R['weather'] = {
-    'source': f'Open-Meteo historical weather archive, hourly model data for {lat}, {lon} (central Salt Spring Island), {day}.',
+    'source': f'Open-Meteo historical weather archive, hourly model data for {lat}, {lon} (central Salt Spring Island' + (f', model elevation {float(elev):.0f} m' if elev else '') + f'), {day}. Values over the water may differ slightly.',
     'note': 'Hourly air temperature over Salt Spring Island on race day, in °C (left scale) and °F (right scale). Hover for wind.',
     'rows': out,
 }
