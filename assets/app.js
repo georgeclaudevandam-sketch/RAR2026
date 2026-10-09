@@ -658,8 +658,8 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=6').then((r) => r.json()),
-    fetch('data/currents.json?v=6').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=7').then((r) => r.json()),
+    fetch('data/currents.json?v=7').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur]) => {
     R = data; CUR = cur;
     const all = R.teams;

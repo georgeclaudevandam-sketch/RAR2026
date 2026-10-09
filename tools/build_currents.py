@@ -169,6 +169,9 @@ for c in R['teams']:
         lo = a; hi = a
         while lo > 0 and tr[a][0] - tr[lo - 1][0] <= 150: lo -= 1
         while hi < n - 1 and tr[hi + 1][0] - tr[a][0] <= 150: hi += 1
+        # positions are logged every 1-5 minutes; make sure the window reaches at least one neighbour each side
+        if lo == a and a > 0 and tr[a][0] - tr[a - 1][0] <= 660: lo = a - 1
+        if hi == a and a < n - 1 and tr[a + 1][0] - tr[a][0] <= 660: hi = a + 1
         dt = tr[hi][0] - tr[lo][0]
         row = tr[a][:6]
         if dt < 60:
