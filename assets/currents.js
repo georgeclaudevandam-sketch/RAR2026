@@ -42,7 +42,7 @@
   }
 
   const RAMP = {
-    dark: ['rgba(120,170,230,0.55)', 'rgba(150,195,245,0.75)', 'rgba(190,220,250,0.9)', 'rgba(230,242,255,0.95)', 'rgba(255,255,255,1)'],
+    dark: ['rgba(134,182,239,0.75)', 'rgba(158,197,244,0.85)', 'rgba(205,226,251,0.95)', 'rgba(235,244,255,1)', 'rgba(255,255,255,1)'],
     light: ['rgba(110,150,210,0.6)', 'rgba(57,135,229,0.75)', 'rgba(42,120,214,0.9)', 'rgba(28,92,171,0.95)', 'rgba(13,54,107,1)'],
   };
   const BREAKS_KN = [0.5, 1, 2, 3]; // bucket edges
@@ -87,7 +87,7 @@
       this.lat = (y) => nw.lat + (se.lat - nw.lat) * (y / size.y);
       this.lon = (x) => nw.lng + (se.lng - nw.lng) * (x / size.x);
       const zoom = map.getZoom();
-      this.pxPerMs = 1.6 * Math.pow(2, (zoom - 11) * 0.6); // px per frame for 1 m/s
+      this.pxPerMs = 3.2 * Math.pow(2, (zoom - 11) * 0.6); // px per frame for 1 m/s
       const count = Math.round(Math.min(3000, Math.max(600, (size.x * size.y) / 110)));
       this.parts = Array.from({ length: count }, () => this._spawn({}, true));
       this.paused = false;
@@ -98,7 +98,7 @@
         if (this.field.at(this.lat(p.y), this.lon(p.x), this.fr || [0, 0, 0])) break;
       }
       p.age = initial ? Math.floor(Math.random() * 80) : 0;
-      p.max = 50 + Math.floor(Math.random() * 60);
+      p.max = 70 + Math.floor(Math.random() * 70);
       return p;
     },
     _step() {
@@ -106,7 +106,7 @@
       const ctx = this.ctx, f = this.field;
       this.fr = f.frame(this.getTime());
       ctx.globalCompositeOperation = 'destination-in';
-      ctx.fillStyle = 'rgba(0,0,0,0.90)';
+      ctx.fillStyle = 'rgba(0,0,0,0.94)';
       ctx.fillRect(0, 0, this.w, this.h);
       ctx.globalCompositeOperation = 'source-over';
       const ramp = RAMP[this.getTheme()];
@@ -122,7 +122,7 @@
         p.x = nx; p.y = ny;
         if (nx < 0 || ny < 0 || nx > this.w || ny > this.h) this._spawn(p);
       }
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = 1.7;
       buckets.forEach((seg, b) => {
         if (!seg.length) return;
         ctx.strokeStyle = ramp[b];
