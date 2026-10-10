@@ -192,6 +192,17 @@
     fin.slice().sort((a, b) => a.netRow - b.netRow).forEach((c, k) => { c.netPlace = k + 1; });
     fin.filter((c) => c.chAvg != null).sort((a, b) => a.chAvg - b.chAvg).forEach((c, k, arr) => { c.chRank = k + 1; c.chOf = arr.length; });
   }
+  // Rowing crews within one boat: stints between crew changes ("Crew 1" rows from the start to the first change, ...)
+  function stints(c) {
+    if (!c || !c.changes || c.division === 'Solos') return [];
+    const ch = c.changes.filter((e) => e.kind === 'change').sort((a, b) => a.t0 - b.t0);
+    if (!ch.length) return [];
+    const out = []; let from = 0;
+    ch.forEach((e, k) => { out.push({ n: k + 1, from, to: e.t0, after: e }); from = e.t1; });
+    out.push({ n: ch.length + 1, from, to: c.finish, after: null });
+    return out;
+  }
+  const tint = (n) => `var(--crew${((n - 1) % 8) + 1})`;
   const mmss = (s) => (s == null ? '–' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
 
   /* ---------- selectors ---------- */
@@ -414,6 +425,31 @@
     $('resultsTable').innerHTML = h + '</tbody>';
   }
 
+  function renderStints() {
+    const c = state.focus != null ? byId[state.focus] : null, list = stints(c);
+    $('stintKey').hidden = !list.length;
+    $('stintCard').hidden = !list.length;
+    if (!list.length) return;
+    $('stintKey').innerHTML = `<b>Shading: crews in ${esc(c.sail)}'s boat</b>` + list.map((st) => `<span><i style="background:${tint(st.n)}"></i>Crew ${st.n} ${clock(st.from)}–${clock(st.to)}</span>`).join('') +
+      '<span><i class="gap"></i>Crew change</span>';
+    $('stintWho').textContent = `${c.sail} · ${shortName(c)}`;
+    const det = !!c.detail;
+    let h = '<thead><tr><th>Crew</th><th class="num">Rowing</th><th class="num">Time</th><th class="num">Distance</th><th class="num">Avg speed km/h</th>' + (hasCur() ? '<th class="num">Thru water km/h</th>' : '') +
+      (det ? '<th class="num">Stroke rate</th><th class="num">m / stroke</th>' : '') + '<th class="num">Then changed at</th><th class="num">Change took</th></tr></thead><tbody>';
+    const rows = list.map((st) => {
+      const km = at(c, st.to).km - at(c, st.from).km, sp = km / ((st.to - st.from) / 3600);
+      const sw = hasCur() ? stwMean(c, st.from, st.to) : null;
+      return { st, km, sp, sw, r: det ? detAvg(c, st.from, st.to, 2) : null, d: det ? detAvg(c, st.from, st.to, 3) : null };
+    });
+    const best = Math.max(...rows.map((r) => (r.sw ?? r.sp)));
+    rows.forEach(({ st, km, sp, sw, r, d }) => {
+      const top = (sw ?? sp) === best;
+      h += `<tr style="background:${tint(st.n)}"><td><b>Crew ${st.n}</b>${top ? ' <small class="muted">fastest</small>' : ''}</td><td class="num">${clock(st.from).slice(0, 5)}–${clock(st.to).slice(0, 5)}</td><td class="num">${dur(st.to - st.from)}</td><td class="num">${km.toFixed(1)} km</td><td class="num">${sp.toFixed(2)}</td>` +
+        (hasCur() ? `<td class="num">${sw == null ? '–' : sw.toFixed(2)}</td>` : '') + (det ? `<td class="num">${r == null ? '–' : r.toFixed(1)}</td><td class="num">${d == null ? '–' : d.toFixed(2)}</td>` : '') +
+        `<td class="num">${st.after ? esc(st.after.gate) : 'Finish'}</td><td class="num">${st.after ? mmss(st.after.lost) : '–'}</td></tr>`;
+    });
+    $('stintTable').innerHTML = h + '</tbody>';
+  }
   function renderChanges() {
     const list = crews.filter((c) => c.changes).sort((a, b) => (a.chAvg ?? 1e9) - (b.chAvg ?? 1e9));
     const withCh = list.filter((c) => c.chAvg != null);
@@ -666,6 +702,14 @@
       return d;
     };
     let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(opts.label)}">`;
+    if (opts.bands !== false && state.focus != null) {
+      const tEnd = times[times.length - 1];
+      stints(byId[state.focus]).forEach((st) => {
+        const a = Math.max(0, st.from), b = Math.min(tEnd, st.to); if (b <= a) return;
+        s += `<rect x="${x(a).toFixed(1)}" y="${m.t}" width="${(x(b) - x(a)).toFixed(1)}" height="${H - m.t - m.b}" fill="${tint(st.n)}"/>`;
+        if (x(b) - x(a) > 22) s += `<text x="${((x(a) + x(b)) / 2).toFixed(1)}" y="${H - m.b - 5}" text-anchor="middle" class="bandlbl">C${st.n}</text>`;
+      });
+    }
     // grid + y ticks
     s += '<g class="grid">';
     opts.yTicks.forEach((v) => { s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(v)}" y2="${y(v)}"/><text x="${m.l - 6}" y="${y(v) + 3.5}" text-anchor="end">${v}</text>`; });
@@ -846,7 +890,7 @@
   /* ---------- re-render on selection change ---------- */
   function refreshAll() {
     writeURL(); syncSelectors();
-    renderStats(); renderSplits(); renderResults(); renderChanges(); renderCurLegs(); renderWindLegs();
+    renderStats(); renderSplits(); renderResults(); renderChanges(); renderStints(); renderCurLegs(); renderWindLegs();
     styleBoats(); buildSeries(); drawCharts(); setTime(state.t);
   }
 
@@ -885,9 +929,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=35').then((r) => r.json()),
-    fetch('data/currents.json?v=35').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=35').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=36').then((r) => r.json()),
+    fetch('data/currents.json?v=36').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=36').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;

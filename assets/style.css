@@ -18,6 +18,7 @@
   --gate: #c98500;
   --temp: #4a3aa7;
   --wind: #1baf7a;
+  --crew1: #fdf3c4; --crew2: #dbeafb; --crew3: #dcf3e4; --crew4: #fbe1ea; --crew5: #e7e1f8; --crew6: #fde6d2; --crew7: #d7f0ef; --crew8: #ececE6;
   --radius: 10px;
 }
 @media (prefers-color-scheme: dark) {
@@ -40,13 +41,14 @@
     --gate: #eda100;
     --temp: #9085e9;
     --wind: #199e70;
+    --crew1: #3a3420; --crew2: #1e2c3d; --crew3: #1d3326; --crew4: #3a2129; --crew5: #2a2440; --crew6: #3b2a1c; --crew7: #1c3433; --crew8: #2c2c2a;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #8f8d86;
   --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --field: #5c5b56;
-  --field-band: rgba(195,194,183,0.12); --s1: #3987e5; --s2: #d95926; --s3: #199e70; --sea: #10232e; --gate: #eda100; --temp: #9085e9; --wind: #199e70;
+  --field-band: rgba(195,194,183,0.12); --s1: #3987e5; --s2: #d95926; --s3: #199e70; --sea: #10232e; --gate: #eda100; --temp: #9085e9; --wind: #199e70; --crew1: #3a3420; --crew2: #1e2c3d; --crew3: #1d3326; --crew4: #3a2129; --crew5: #2a2440; --crew6: #3b2a1c; --crew7: #1c3433; --crew8: #2c2c2a;
 }
 
 * { box-sizing: border-box; }
@@ -287,3 +289,10 @@ small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 4
 
 .stat.pick { grid-column: 1 / -1; border-style: dashed; }
 .stat.pick .d { white-space: normal; }
+
+/* ---- crews within the selected boat ---- */
+.stintkey { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; font-size: 12px; color: var(--ink-2); margin: 0 0 8px; }
+.stintkey i { display: inline-block; width: 14px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 5px; border: 1px solid var(--line); }
+.stintkey i.gap { background: var(--surface); }
+.chart text.bandlbl { fill: var(--muted); font-size: 10px; font-weight: 600; }
+#stintTable td { border-bottom-color: var(--surface); }
