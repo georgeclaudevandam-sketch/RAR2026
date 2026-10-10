@@ -784,7 +784,7 @@
   function niceTicks(max, n) {
     const raw = max / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
     const step = [1, 2, 2.5, 5, 10].map((f) => f * mag).find((s) => max / s <= n) || mag * 10;
-    const out = []; for (let v = 0; v <= max + 1e-9; v += step) out.push(+v.toFixed(2)); return { ticks: out, max: out[out.length - 1] };
+    const out = []; for (let v = 0; v < max + step - 1e-9; v += step) out.push(+v.toFixed(2)); return { ticks: out, max: out[out.length - 1] };
   }
   function drawCharts() {
     const gapMax = Math.max(1, ...Object.entries(series.gap).filter(([id]) => inDiv(byId[id]) || slotOf(byId[id]) >= 0).flatMap(([, a]) => a.filter((v) => v != null)));
