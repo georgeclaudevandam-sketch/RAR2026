@@ -587,7 +587,7 @@
     });
     if (opts.arrows) opts.arrows.forEach(([t, toDeg]) => {   // arrows point the way the wind blows (downwind)
       if (toDeg == null) return;
-      s += `<g transform="translate(${x(t).toFixed(1)},${m.t + 9}) rotate(${toDeg.toFixed(0)})"><path d="M0,7 L0,-6 M-3.5,-2 L0,-7 L3.5,-2" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+      s += `<g transform="translate(${x(t).toFixed(1)},${m.t + 12}) rotate(${toDeg.toFixed(0)})"><path d="M0,7 L0,-6 M-3.5,-2 L0,-7 L3.5,-2" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
     });
     s += `<line class="cursor" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="var(--ink-2)" stroke-width="1"/>`;
     s += `<line class="hover" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3" visibility="hidden"/>`;
@@ -652,7 +652,7 @@
       const mx = Math.max(2, ...series.windSp.filter((v) => v != null));
       const hi = Math.ceil(mx + 1.5), wt = []; for (let v = 0; v <= hi; v += 1) wt.push(v);
       const kmT = []; for (let v = 0; v <= hi * 1.852; v += 2) kmT.push(v);
-      const arrows = []; for (let t = 0; t <= series.times[series.times.length - 1]; t += 1800) { const v = windVec(t); if (v) arrows.push([t, (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360]); }
+      const arrows = []; for (let t = 1800; t <= series.times[series.times.length - 1]; t += 3600) { const v = windVec(t); if (v) arrows.push([t, (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360]); }
       drawChart('wind', { el: 'chartWind', label: 'Wind speed and direction during the race', yMin: 0, yMax: () => hi, yTicks: wt, units: ['kn', 'km/h'], right: { ticks: kmT, toLeft: (k) => k / 1.852 }, arrows,
         lines: [{ arr: series.windSp, stroke: 'var(--wind)', name: 'Wind', fmt: (v, k) => `${v.toFixed(1)} kn · ${(v * 1.852).toFixed(1)} km/h from ${compass(series.windDir[k])} (${series.windDir[k] == null ? '' : series.windDir[k].toFixed(0) + '°'})` }] });
     }
@@ -750,9 +750,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=22').then((r) => r.json()),
-    fetch('data/currents.json?v=22').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=22').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=23').then((r) => r.json()),
+    fetch('data/currents.json?v=23').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=23').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
