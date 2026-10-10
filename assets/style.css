@@ -254,3 +254,9 @@ small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 4
 .board { max-height: calc(clamp(570px, calc((100vh - 290px) * 1.5), 1350px) + 80px); }
 @media (max-width: 980px) { #map { height: 560px; } .board { max-height: none; } }
 @media (max-width: 560px) { #map { height: 420px; } }
+
+/* ---- replay controls pinned to the bottom of the window while the map is on screen ---- */
+.mapcol { overflow: clip; }
+.ctlbar { position: sticky; bottom: 0; z-index: 1000; background: var(--surface); border-top: 1px solid var(--line);
+  box-shadow: 0 -4px 14px rgba(0, 0, 0, .12); border-radius: 0 0 var(--radius) var(--radius); }
+.ctlbar .controls { border-top: 0; }
