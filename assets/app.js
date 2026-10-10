@@ -581,13 +581,13 @@
       });
     }
     if (opts.lines) opts.lines.forEach((ln) => { s += `<path d="${path(ln.arr)}" fill="none" stroke="${ln.stroke}" stroke-width="2.25" stroke-linejoin="round"/>`; });
-    if (opts.arrows) opts.arrows.forEach(([t, toDeg]) => {   // arrows point the way the wind blows (downwind)
-      if (toDeg == null) return;
-      s += `<g transform="translate(${x(t).toFixed(1)},${m.t + 9}) rotate(${toDeg.toFixed(0)})"><path d="M0,7 L0,-6 M-3.5,-2 L0,-7 L3.5,-2" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
-    });
     else selected().slice().reverse().forEach((c) => {
       const sl = slotOf(c);
       s += `<path d="${path(opts.data[c.id])}" fill="none" stroke="var(--${SLOT[sl]})" stroke-width="2.25" stroke-linejoin="round"/>`;
+    });
+    if (opts.arrows) opts.arrows.forEach(([t, toDeg]) => {   // arrows point the way the wind blows (downwind)
+      if (toDeg == null) return;
+      s += `<g transform="translate(${x(t).toFixed(1)},${m.t + 9}) rotate(${toDeg.toFixed(0)})"><path d="M0,7 L0,-6 M-3.5,-2 L0,-7 L3.5,-2" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
     });
     s += `<line class="cursor" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="var(--ink-2)" stroke-width="1"/>`;
     s += `<line class="hover" x1="0" x2="0" y1="${m.t}" y2="${H - m.b}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 3" visibility="hidden"/>`;
@@ -750,9 +750,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=20').then((r) => r.json()),
-    fetch('data/currents.json?v=20').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=20').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=22').then((r) => r.json()),
+    fetch('data/currents.json?v=22').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=22').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
