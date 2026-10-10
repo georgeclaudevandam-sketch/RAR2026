@@ -7,7 +7,6 @@
   const STEP = 60;               // chart sampling, seconds
   const TRAIL = 30 * 60;         // map trail length for the field, seconds
   const SLOT = ['s1', 's2', 's3'];
-  const DEFAULT = { crew: '204', vs: '205,202' }; // our crew; compared with the winner and the next crew ahead
 
   const $ = (id) => document.getElementById(id);
   const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -199,34 +198,31 @@
   function fillSelectors() {
     const opts = crews.slice().sort((a, b) => a.place - b.place)
       .map((c) => `<option value="${c.id}">${esc(c.sail)} · ${esc(shortName(c))}</option>`).join('');
-    $('focusSel').innerHTML = opts;
-    $('cmpSel1').innerHTML = '<option value="">None</option>' + opts;
-    $('cmpSel2').innerHTML = '<option value="">None</option>' + opts;
+    $('focusSel').innerHTML = '<option value="">Choose your crew…</option>' + opts;
+    $('cmpSel1').innerHTML = '<option value="">Choose a crew…</option>' + opts;
+    $('cmpSel2').innerHTML = '<option value="">Choose a crew…</option>' + opts;
   }
   function readURL() {
     const q = new URLSearchParams(location.search);
     const bySail = (s) => crews.find((c) => String(c.sail).toLowerCase() === String(s).toLowerCase());
-    let saved = {};
-    try { saved = JSON.parse(localStorage.getItem('rar2026') || '{}'); } catch (e) { /* storage unavailable */ }
-    const f = bySail(q.get('crew') || saved.crew || DEFAULT.crew);
-    state.focus = f ? f.id : crews.find((c) => c.place === 1).id;
-    const vs = (q.get('vs') ?? (saved.crew ? saved.vs : DEFAULT.vs) ?? '').split(',').map(bySail).filter(Boolean).map((c) => c.id).filter((id) => id !== state.focus);
-    const winner = crews.find((c) => c.place === 1).id;
-    state.cmp = [vs[0] ?? (winner !== state.focus ? winner : crews.find((c) => c.place === 2).id), vs[1] ?? null];
+    // The page opens with no crews chosen; a shared link (?crew=204&vs=205,202) pre-selects them
+    const f = q.get('crew') ? bySail(q.get('crew')) : null;
+    state.focus = f ? f.id : null;
+    const vs = (q.get('vs') || '').split(',').filter(Boolean).map(bySail).filter(Boolean).map((c) => c.id).filter((id) => id !== state.focus);
+    state.cmp = [vs[0] ?? null, vs[1] ?? null];
     if (q.get('div')) state.div = q.get('div');
     if (q.get('t') && isFinite(+q.get('t'))) state.t = +q.get('t');
   }
   function writeURL() {
     const q = new URLSearchParams();
-    q.set('crew', byId[state.focus].sail);
+    if (state.focus != null) q.set('crew', byId[state.focus].sail);
     const vs = state.cmp.filter((x) => x != null).map((id) => byId[id].sail);
     if (vs.length) q.set('vs', vs.join(','));
     if (state.div !== 'All') q.set('div', state.div);
-    history.replaceState(null, '', '?' + q.toString());
-    try { localStorage.setItem('rar2026', JSON.stringify({ crew: q.get('crew'), vs: q.get('vs') || '' })); } catch (e) { /* ignore */ }
+    history.replaceState(null, '', q.toString() ? '?' + q.toString() : location.pathname);
   }
   function syncSelectors() {
-    $('focusSel').value = state.focus;
+    $('focusSel').value = state.focus ?? '';
     $('cmpSel1').value = state.cmp[0] ?? '';
     $('cmpSel2').value = state.cmp[1] ?? '';
     $('divSel').value = state.div;
@@ -250,6 +246,11 @@
   }
   // Tiles follow the replay clock: everything is "so far" until the crew finishes, then final.
   function renderStats() {
+    if (state.focus == null) {
+      $('statsTag').textContent = '';
+      $('stats').innerHTML = '<div class="stat pick"><div class="v" style="font-size:13px">Choose your crew above</div><div class="d">Its live position, speeds, stroke data, crew changes, current and wind will show here as the replay plays.</div></div>';
+      return;
+    }
     const c = byId[state.focus], t = state.t;
     const pre = t < 120, done = t >= c.finish, tt = Math.max(0, Math.min(t, c.finish));
     const tag = t < 0 ? 'Before the start' : pre ? 'At the start' : done ? 'Final' : 'So far';
@@ -370,6 +371,7 @@
     if (!R.weather) return;
     $('windCard').hidden = false;
     const names = legNames(), sel = selected();
+    if (!sel.length) { $('windTable').innerHTML = '<tbody><tr><td class="muted">Choose a crew above to see the wind along its track, leg by leg.</td></tr></tbody>'; return; }
     const bounds = (c) => [0, ...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
     const fmt = (v) => (v == null ? '–' : `${v.along >= 0 ? '+' : '−'}${Math.abs(v.along).toFixed(1)} kn<small class="sub">${v.along >= 0 ? 'tail' : 'head'} · ${Math.round(v.headShare * 100)}% into wind</small>`);
     let h = '<thead><tr><th>Leg</th>' + sel.map((c) => `<th class="num"><span class="crew" style="justify-content:flex-end"><span class="dot ${SLOT[slotOf(c)]}"></span>${esc(c.sail)}</span></th>`).join('') + '</tr></thead><tbody>';
@@ -383,6 +385,7 @@
     if (!hasCur()) return;
     $('curCard').hidden = false;
     const names = legNames(), sel = selected();
+    if (!sel.length) { $('curTable').innerHTML = '<tbody><tr><td class="muted">Choose a crew above to see how the current helped or hindered it, leg by leg.</td></tr></tbody>'; return; }
     const bounds = (c) => [0, ...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
     let h = '<thead><tr><th>Leg</th>' + sel.map((c) => `<th class="num"><span class="crew" style="justify-content:flex-end"><span class="dot ${SLOT[slotOf(c)]}"></span>${esc(c.sail)}</span></th>`).join('') + '</tr></thead><tbody>';
     const tot = sel.map(() => 0);
@@ -506,10 +509,11 @@
     fo.badge.addTo(fo.map);
   }
   function followCrew() {
-    const fo = views.find((v) => v.kind === 'follow'); if (!fo || state.focus == null) return;
-    const c = byId[state.focus], p = at(c, state.t);
+    const fo = views.find((v) => v.kind === 'follow'); if (!fo) return;
+    const mine = state.focus != null;
+    const c = mine ? byId[state.focus] : standings(Math.max(state.t, 0), crews)[0].c, p = at(c, state.t);
     fo.map.setView([p.lat, p.lon], fo.map.getZoom(), { animate: false });
-    const el = $('followBadge'); if (el) el.textContent = `Following ${c.sail} · ${shortName(c)}`;
+    const el = $('followBadge'); if (el) el.textContent = mine ? `Following ${c.sail} · ${shortName(c)}` : `Following the leader (${c.sail}) · choose your crew above`;
   }
   function setBase() {
     views.forEach((v) => {
@@ -848,7 +852,7 @@
 
   function bind() {
     $('focusSel').addEventListener('change', (e) => {
-      state.focus = +e.target.value;
+      state.focus = e.target.value ? +e.target.value : null;
       state.cmp = state.cmp.map((x) => (x === state.focus ? null : x));
       refreshAll();
     });
@@ -881,9 +885,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=33').then((r) => r.json()),
-    fetch('data/currents.json?v=33').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=33').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=35').then((r) => r.json()),
+    fetch('data/currents.json?v=35').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=35').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
