@@ -24,6 +24,7 @@ All positions and results come from [YB Tracking](https://yb.tl/rar2026).
 | `data/raw/RaceSetup.json` | Course, gates and crew list, as downloaded from YB |
 | `data/raw/leaderboard.json` | Official finish times, as downloaded from YB |
 | `data/raw/AllPositions3.bin` | GPS positions for every boat (YB binary format) |
+| `data/raw/crew204_niobium.csv`, `crew204_maptattoo.gpx` | Crew 204's own recordings (1 s and 10 s) |
 | `data/race.json` | The processed file the site reads |
 
 To rebuild `data/race.json` from the raw files:
@@ -31,6 +32,7 @@ To rebuild `data/race.json` from the raw files:
 ```
 python3 tools/decode_yb_positions.py
 python3 tools/build_race_json.py
+python3 tools/build_crew_detail.py # crew 204's own Niobium + Maptattoo recordings replace its YB track
 python3 tools/build_weather.py
 python3 tools/build_coast.py      # shoreline mask from data/raw/osm_coastline.json
 python3 tools/build_currents.py   # currents from data/raw/atlas_arrows.json (CHS atlas), else the UBC model   # adds race-day weather from data/raw/weather_open-meteo.csv
@@ -50,3 +52,9 @@ linearly. The screenshots themselves are not published here.
 
 An earlier version used the UBC SalishSeaCast ocean model (`CURRENT_SOURCE=model`), which did not match
 race-day conditions in Stuart Channel.
+
+## Data cleaning
+
+YB tracker fixes that are clearly wrong are dropped (`clean()` in `tools/build_race_json.py`): near-duplicate fixes
+more than 60 m from where their neighbours put the boat, and isolated spikes more than 100 m off line that would need
+over 4 m/s both in and out. The rule was tuned against crew 204's 1-second track, where it removed no good fixes.

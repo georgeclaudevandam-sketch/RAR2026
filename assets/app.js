@@ -225,6 +225,12 @@
   }
 
   /* ---------- stats tiles ---------- */
+  function detAvg(c, t0, t1, col) {   // mean of crew stroke-data column over [t0, t1]; col 1 speed, 2 spm, 3 m/stroke
+    if (!c.detail) return null;
+    let s = 0, n = 0;
+    for (const r of c.detail.rows) { if (r[0] < t0) continue; if (r[0] > t1) break; if (r[col] != null) { s += r[col]; n++; } }
+    return n ? s / n : null;
+  }
   function stwMean(c, t0, t1) { // time-weighted speed through the water between t0 and t1
     const tr = c.track; let sum = 0, w = 0;
     for (let a = 1; a < tr.length; a++) {
@@ -259,8 +265,13 @@
       tiles.push(['Speed through the water', sw == null ? '–' : `${sw.toFixed(2)}<small class="muted"> km/h</small>`,
         sw == null ? 'With the current taken out' : `${(sw / KN).toFixed(2)} kn, current taken out`]);
     }
+    if (c.detail) {
+      const now = detAvg(c, t - 60, t + 0, 2), avgR = detAvg(c, 0, tt, 2), dps = detAvg(c, 0, tt, 3);
+      tiles.push(['Stroke rate', pre || now == null ? (done && avgR ? `${avgR.toFixed(1)}<small class="muted"> spm</small>` : '–') : `${now.toFixed(1)}<small class="muted"> spm</small>`,
+        avgR == null ? 'From the crew\'s log' : `${done ? 'Race average' : `Average so far ${avgR.toFixed(1)} spm`} · ${dps ? dps.toFixed(2) + ' m/stroke' : ''}`]);
+    }
     const rowed = at(c, tt).km - at(c, 0).km;
-    tiles.push(['GPS distance rowed', `${rowed.toFixed(1)}<small class="muted"> km</small>`, done ? 'Start to finish, from the tracker' : 'From the tracker']);
+    tiles.push(['GPS distance rowed', `${rowed.toFixed(1)}<small class="muted"> km</small>`, (done ? 'Start to finish, ' : '') + (c.detail ? 'from the crew\'s GPS' : 'from the tracker')]);
     const legs = legTimes(c), ranks = legRanks(), ends = [...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
     let best = null;
     legs.forEach((v, k) => { if (ends[k] == null || ends[k] > tt) return; const rk = ranks[k][c.id]; if (rk && (!best || rk < best.rk)) best = { k, rk }; });
@@ -321,6 +332,24 @@
       h += `<td class="num">${dur(c.finish)}</td></tr>`;
     });
     $('splitsTable').innerHTML = h + '</tbody>';
+  }
+  function renderStrokeLegs(list) {
+    const names = legNames();
+    let h = '<thead><tr><th>Leg</th><th class="num">Stroke rate</th><th class="num">m / stroke</th><th class="num">Speed km/h</th>' + (hasCur() ? '<th class="num">Thru water km/h</th>' : '') + '<th class="num">Stopped</th></tr></thead><tbody>';
+    list.forEach((c) => {
+      const b = [0, ...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
+      const row = (label, t0, t1, bold) => {
+        const sp = detAvg(c, t0, t1, 1), r = detAvg(c, t0, t1, 2), d = detAvg(c, t0, t1, 3);
+        let stop = 0; for (const x of c.detail.rows) if (x[0] >= t0 && x[0] < t1 && x[1] < 0.5) stop += 10;
+        const w = (v) => (bold ? `<b>${v}</b>` : v);
+        return `<tr><td>${w(label)}</td><td class="num">${w(r == null ? '–' : r.toFixed(1))}</td><td class="num">${w(d == null ? '–' : d.toFixed(2))}</td><td class="num">${w(sp == null ? '–' : (sp * 3.6).toFixed(2))}</td>` +
+          (hasCur() ? `<td class="num">${w((() => { const v = stwMean(c, t0, t1); return v == null ? '–' : v.toFixed(2); })())}</td>` : '') + `<td class="num">${w(stop ? dur(stop) : '–')}</td></tr>`;
+      };
+      if (list.length > 1) h += `<tr><td colspan="6"><b>${esc(c.sail)} · ${esc(shortName(c))}</b></td></tr>`;
+      names.forEach((n, k) => { if (b[k] != null && b[k + 1] != null) h += row(n, b[k], b[k + 1]); });
+      h += row('Whole race', 0, c.finish, true);
+    });
+    $('strokeTable').innerHTML = h + '</tbody>';
   }
   function renderWindLegs() {
     if (!R.weather) return;
@@ -522,6 +551,11 @@
       series.windDir = times.map((t) => { const v = windVec(t); return v ? (Math.atan2(v[0], v[1]) * 180 / Math.PI + 180 + 360) % 360 : null; });
       series.windSp = times.map((t) => { const v = windVec(t); return v ? Math.hypot(v[0], v[1]) : null; });
     }
+    series.spm = {}; series.dps = {};
+    selected().filter((c) => c.detail).forEach((c) => {
+      series.spm[c.id] = times.map((t) => (t > c.finish ? null : detAvg(c, t - 60, t + 60, 2)));
+      series.dps[c.id] = times.map((t) => (t > c.finish ? null : detAvg(c, t - 60, t + 60, 3)));
+    });
     if (!hasCur()) state.speedMode = 'sog';
     series.speed = series[state.speedMode];
     series.band = times.map((t, k) => {
@@ -648,6 +682,22 @@
           ...(series.feels ? [{ arr: series.feels, stroke: 'none', name: 'Feels like', fmt: (v) => `${v.toFixed(1)} °C` }] : []),
         ] });
     }
+    const strokeCrews = selected().filter((c) => c.detail);
+    $('strokeCard').hidden = !strokeCrews.length;
+    if (strokeCrews.length) {
+      const sel = strokeCrews.map((c) => `${esc(c.sail)} · ${esc(shortName(c))}`).join(', ');
+      $('strokeWho').textContent = sel;
+      const vals = (o) => strokeCrews.flatMap((c) => o[c.id].filter((v) => v != null));
+      const r = vals(series.spm), d = vals(series.dps);
+      const rLo = Math.floor(Math.min(...r) / 2) * 2 - 2, rHi = Math.ceil(Math.max(...r) / 2) * 2 + 2;
+      const rt = []; for (let v = rLo; v <= rHi; v += 2) rt.push(v);
+      const dLo = Math.floor(Math.min(...d) * 2) / 2 - 0.5, dHi = Math.ceil(Math.max(...d) * 2) / 2 + 0.5;
+      const dt = []; for (let v = dLo; v <= dHi + 1e-9; v += 0.5) dt.push(+v.toFixed(1));
+      const linesOf = (o, f) => strokeCrews.map((c) => ({ arr: o[c.id], stroke: `var(--${SLOT[slotOf(c)]})`, name: `${esc(c.sail)}`, fmt: f }));
+      drawChart('spm', { el: 'chartSpm', label: 'Stroke rate during the race', yMin: rLo, yMax: () => rHi, yTicks: rt, units: ['spm'], lines: linesOf(series.spm, (v) => v.toFixed(1) + ' spm') });
+      drawChart('dps', { el: 'chartDps', label: 'Distance per stroke during the race', yMin: Math.max(0, dLo), yMax: () => dHi, yTicks: dt.filter((v) => v >= 0), units: ['m'], lines: linesOf(series.dps, (v) => v.toFixed(2) + ' m') });
+      renderStrokeLegs(strokeCrews);
+    }
     if (series.windSp) {
       const mx = Math.max(2, ...series.windSp.filter((v) => v != null));
       const hi = Math.ceil(mx + 1.5), wt = []; for (let v = 0; v <= hi; v += 1) wt.push(v);
@@ -750,9 +800,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=23').then((r) => r.json()),
-    fetch('data/currents.json?v=23').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=23').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=24').then((r) => r.json()),
+    fetch('data/currents.json?v=24').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=24').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
@@ -770,6 +820,7 @@
       document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Weather: ${esc(R.weather.source)}</p>`);
     }
     if (R.dateNote) $('dateNote').textContent = R.dateNote;
+    R.teams.filter((c) => c.source).forEach((c) => document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Crew ${esc(c.sail)} track and stroke data: ${esc(c.source)}</p>`));
     const sl = $('slider'); sl.min = tMin; sl.max = tMax; sl.step = 15;
     computeResults();
     fillSelectors();

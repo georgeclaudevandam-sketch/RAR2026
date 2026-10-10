@@ -16,6 +16,35 @@ def inter(p1,p2,q1,q2):
     t=((x1-x3)*(y3-y4)-(y1-y3)*(x3-x4))/den
     u=-((x1-x2)*(y1-y3)-(y1-y2)*(x1-x3))/den
     return t if 0<=t<=1 and 0<=u<=1 else None
+def clean(pts):
+    """Drop clearly bad YB fixes (tuned against crew 204's 1-second Niobium track: no good fixes dropped).
+    1) Near-duplicate fixes (<15 s apart): drop the one more than 60 m from where its neighbours put the boat.
+    2) Isolated spikes: more than 100 m off the neighbours' line AND needing > 4 m/s (7.8 kn) both in and out."""
+    pts = list(pts); dropped = []
+    def off(a, b, c):
+        f = (b['t'] - a['t']) / max(c['t'] - a['t'], 1)
+        return hav(b['lat'], b['lon'], a['lat'] + f * (c['lat'] - a['lat']), a['lon'] + f * (c['lon'] - a['lon'])) * 1000
+    i = 1
+    while i < len(pts) - 2:
+        if pts[i + 1]['t'] - pts[i]['t'] < 15:
+            o1, o2 = off(pts[i - 1], pts[i], pts[i + 2]), off(pts[i - 1], pts[i + 1], pts[i + 2])
+            if max(o1, o2) > 60:
+                k = i if o1 > o2 else i + 1
+                dropped.append(pts[k]['t']); del pts[k]; continue
+        i += 1
+    while True:
+        bad = None
+        for i in range(1, len(pts) - 1):
+            a, b, c = pts[i - 1], pts[i], pts[i + 1]
+            if c['t'] - a['t'] > 360 or c['t'] == a['t']:
+                continue
+            o = off(a, b, c)
+            v1 = hav(a['lat'], a['lon'], b['lat'], b['lon']) * 1000 / max(b['t'] - a['t'], 1)
+            v2 = hav(b['lat'], b['lon'], c['lat'], c['lon']) * 1000 / max(c['t'] - b['t'], 1)
+            if o > 100 and v1 > 4 and v2 > 4 and (bad is None or o > bad[1]): bad = (i, o)
+        if bad is None: return pts, dropped
+        dropped.append(pts[bad[0]]['t']); del pts[bad[0]]
+
 gates=[]
 for ln in S['poi']['lines']:
     v=[float(x) for x in ln['nodes'].split(',')]
@@ -32,6 +61,9 @@ for tm in S['teams']:
     if tid not in P: continue
     pts=P[tid]
     safety = 84288 in tm['tags'] or 'SAFETY' in tm['name'].upper()
+    if not safety:
+        pts, dropped = clean(pts)
+        if dropped: print(f"  {tm.get('sail')}: dropped {len(dropped)} bad YB fixes", [round((d-T0)/60) for d in dropped])
     div='Safety' if safety else [tagname[x] for x in tm['tags'] if x!=84284][0]
     # cumulative distance + speed
     cum=[0.0]
