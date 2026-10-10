@@ -184,8 +184,16 @@
       c.rowedKm = at(c, c.finish).km - at(c, 0).km;
       c.avg = R.courseKm / (c.finish / 3600);
       if (hasCur()) { const g = curGain(c, 0, c.finish); c.gain = g.gain; c.along = g.along; c.stwAvg = colAvg(c, c.finish / 2, c.finish / 2, c.finish / 2, 7); }
+      const ch = (c.changes || []).filter((e) => e.kind === 'change'), st = (c.changes || []).filter((e) => e.kind === 'stop');
+      c.chN = ch.length; c.chLost = ch.reduce((a, e) => a + e.lost, 0); c.chAvg = ch.length ? c.chLost / ch.length : null;
+      c.chMin = ch.length ? Math.min(...ch.map((e) => e.lost)) : null; c.chMax = ch.length ? Math.max(...ch.map((e) => e.lost)) : null;
+      c.stopLost = st.reduce((a, e) => a + e.lost, 0);
+      c.netRow = c.finish - c.chLost - c.stopLost;     // time spent actually rowing
     });
+    fin.slice().sort((a, b) => a.netRow - b.netRow).forEach((c, k) => { c.netPlace = k + 1; });
+    fin.filter((c) => c.chAvg != null).sort((a, b) => a.chAvg - b.chAvg).forEach((c, k, arr) => { c.chRank = k + 1; c.chOf = arr.length; });
   }
+  const mmss = (s) => (s == null ? '–' : `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`);
 
   /* ---------- selectors ---------- */
   function fillSelectors() {
@@ -269,6 +277,13 @@
       const now = detAvg(c, t - 60, t + 0, 2), avgR = detAvg(c, 0, tt, 2), dps = detAvg(c, 0, tt, 3);
       tiles.push(['Stroke rate', pre || now == null ? (done && avgR ? `${avgR.toFixed(1)}<small class="muted"> spm</small>` : '–') : `${now.toFixed(1)}<small class="muted"> spm</small>`,
         avgR == null ? 'From the crew\'s log' : `${done ? 'Race average' : `Average so far ${avgR.toFixed(1)} spm`} · ${dps ? dps.toFixed(2) + ' m/stroke' : ''}`]);
+    }
+    if (c.changes && c.division !== 'Solos') {
+      const done_ = c.changes.filter((e) => e.kind === 'change' && e.t0 <= tt);
+      const now = c.changes.find((e) => e.kind === 'change' && e.t0 <= t && t < e.t1);
+      const lost = done_.reduce((a, e) => a + (e.t1 <= tt ? e.lost : Math.min(e.lost, tt - e.t0)), 0);
+      tiles.push(['Crew changes', now ? `<span style="color:var(--s2)">Changing</span>` : `${done_.length}<small class="muted"> · ${mmss(lost)}</small>`,
+        now ? `At ${esc(now.gate)} · ${mmss(now.lost)} in total` : done ? `Avg ${mmss(c.chAvg)} · ${c.chRank ? `${ordinal(c.chRank)} fastest of ${c.chOf}` : ''}` : (done_.length ? `Time lost so far · avg ${mmss(lost / done_.length)}` : 'None yet')]);
     }
     const rowed = at(c, tt).km - at(c, 0).km;
     tiles.push(['GPS distance rowed', `${rowed.toFixed(1)}<small class="muted"> km</small>`, (done ? 'Start to finish, ' : '') + (c.detail ? 'from the crew\'s GPS' : 'from the tracker')]);
@@ -386,12 +401,52 @@
   }
   function renderResults() {
     const rows = crews.slice().sort((a, b) => a.place - b.place);
-    let h = '<thead><tr><th class="num">Place</th><th>Crew</th><th>Division</th><th class="num">Div.</th><th>Captain</th><th class="num">Finished</th><th class="num">Elapsed</th><th class="num">Behind</th><th class="num">Avg km/h</th><th class="num">Avg kn</th><th class="num">Pace /500 m</th></tr></thead><tbody>';
+    let h = '<thead><tr><th class="num">Place</th><th>Crew</th><th>Division</th><th class="num">Div.</th><th>Captain</th><th class="num">Finished</th><th class="num">Elapsed</th><th class="num">Behind</th><th class="num">Avg km/h</th><th class="num">Avg kn</th><th class="num">Pace /500 m</th><th class="num">Crew changes</th><th class="num">Change time</th><th class="num">Other stops</th><th class="num">Rowing time</th><th class="num">Place on rowing time</th></tr></thead><tbody>';
     rows.forEach((c) => {
       const s = slotOf(c);
-      h += `<tr class="${s >= 0 ? 'hl' : ''}"><td class="num">${c.place}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div></td><td>${c.division}</td><td class="num">${c.divPlace}</td><td>${esc(c.captain || '')}</td><td class="num">${clock(c.finish, true)}</td><td class="num">${dur(c.finish)}</td><td class="num">${c.behindWinner ? '+' + dur(c.behindWinner) : '–'}</td><td class="num">${c.avg.toFixed(2)}</td><td class="num">${(c.avg / KN).toFixed(2)}</td><td class="num">${pace(c.avg)}</td></tr>`;
+      h += `<tr class="${s >= 0 ? 'hl' : ''}"><td class="num">${c.place}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div></td><td>${c.division}</td><td class="num">${c.divPlace}</td><td>${esc(c.captain || '')}</td><td class="num">${clock(c.finish, true)}</td><td class="num">${dur(c.finish)}</td><td class="num">${c.behindWinner ? '+' + dur(c.behindWinner) : '–'}</td><td class="num">${c.avg.toFixed(2)}</td><td class="num">${(c.avg / KN).toFixed(2)}</td><td class="num">${pace(c.avg)}</td>` +
+        `<td class="num">${c.division === 'Solos' ? '<span class="muted">solo</span>' : c.chN}</td><td class="num">${c.chN ? mmss(c.chLost) : '–'}</td><td class="num">${c.stopLost ? mmss(c.stopLost) : '–'}</td><td class="num">${dur(c.netRow)}</td>` +
+        `<td class="num">${c.netPlace}${c.netPlace !== c.place ? ` <small class="muted">(${c.netPlace < c.place ? '▲' : '▼'}${Math.abs(c.place - c.netPlace)})</small>` : ''}</td></tr>`;
     });
     $('resultsTable').innerHTML = h + '</tbody>';
+  }
+
+  function renderChanges() {
+    const list = crews.filter((c) => c.changes).sort((a, b) => (a.chAvg ?? 1e9) - (b.chAvg ?? 1e9));
+    const withCh = list.filter((c) => c.chAvg != null);
+    if (!withCh.length) return;
+    $('chCard').hidden = false;
+    const fastest = withCh[0], slowest = withCh[withCh.length - 1];
+    const all = withCh.flatMap((c) => c.changes.filter((e) => e.kind === 'change').map((e) => ({ c, e })));
+    const best = all.reduce((a, b) => (b.e.lost < a.e.lost ? b : a)), worst = all.reduce((a, b) => (b.e.lost > a.e.lost ? b : a));
+    const med = withCh.map((c) => c.chAvg).sort((a, b) => a - b)[Math.floor(withCh.length / 2)];
+    const nm = (c) => `${esc(c.sail)} · ${esc(shortName(c))}`;
+    $('chFacts').innerHTML = [
+      ['Fastest changes', `${nm(fastest)}`, `${mmss(fastest.chAvg)} average over ${fastest.chN}`],
+      ['Slowest changes', `${nm(slowest)}`, `${mmss(slowest.chAvg)} average over ${slowest.chN}`],
+      ['Quickest single change', `${mmss(best.e.lost)}`, `${esc(best.c.sail)} at ${esc(best.e.gate)}`],
+      ['Longest single change', `${mmss(worst.e.lost)}`, `${esc(worst.c.sail)} at ${esc(worst.e.gate)}`],
+      ['Field median', `${mmss(med)}`, 'average per change'],
+    ].map(([k, v, d]) => `<div class="stat"><div class="k">${k}</div><div class="v" style="font-size:13px">${v}</div><div class="d">${d}</div></div>`).join('');
+    // bars: total time lost to changes, sorted fastest average first
+    const maxL = Math.max(...list.map((c) => c.chLost + c.stopLost), 60);
+    $('chBars').innerHTML = list.map((c) => {
+      const s = slotOf(c), col = s >= 0 ? `var(--${SLOT[s]})` : 'var(--field)';
+      const segs = c.changes.map((e) => `<span title="${esc(e.kind === 'change' ? 'Crew change at ' + e.gate : 'Stop')} ${clock(e.t0)}: ${mmss(e.lost)}" style="width:${(e.lost / maxL * 100).toFixed(2)}%;background:${e.kind === 'change' ? col : 'transparent'};${e.kind === 'stop' ? `border:1.5px dashed ${col};` : ''}"></span>`).join('');
+      return `<div class="chrow${s >= 0 ? ' hl' : ''}"><div class="chname">${nm(c)}</div><div class="chbar">${segs}</div><div class="chval">${c.chN ? `${mmss(c.chLost)} <small class="muted">${c.chN}× · avg ${mmss(c.chAvg)}</small>` : '<small class="muted">no changes</small>'}${c.stopLost ? ` <small class="muted">+ ${mmss(c.stopLost)} stops</small>` : ''}</div></div>`;
+    }).join('');
+    // table: each crew's changes by gate
+    const gs = gateList().map((g) => g.short);
+    let h = '<thead><tr><th>Crew</th>' + gs.map((g) => `<th class="num">${esc(g)}</th>`).join('') + '<th class="num">Other stops</th><th class="num">Total</th><th class="num">Average</th><th class="num">Rank</th><th class="num">Place → on rowing time</th></tr></thead><tbody>';
+    list.forEach((c) => {
+      const s = slotOf(c);
+      const at = (g) => { const e = c.changes.find((x) => x.kind === 'change' && x.gate === g); return e ? `<span title="${clock(e.t0)}–${clock(e.t1)}">${mmss(e.lost)}</span>` : '<span class="muted">–</span>'; };
+      h += `<tr class="${s >= 0 ? 'hl' : ''}"><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${nm(c)}</span></div></td>` + gs.map((g) => `<td class="num">${at(g)}</td>`).join('') +
+        `<td class="num">${c.stopLost ? mmss(c.stopLost) : '–'}</td><td class="num">${c.chN ? mmss(c.chLost) : '–'}</td><td class="num">${mmss(c.chAvg)}</td><td class="num">${c.chRank ? `${c.chRank} / ${c.chOf}` : '–'}</td>` +
+        `<td class="num">${c.place} → ${c.netPlace}${c.netPlace !== c.place ? ` <small class="muted">(${c.netPlace < c.place ? '▲' : '▼'}${Math.abs(c.place - c.netPlace)})</small>` : ''}</td></tr>`;
+    });
+    $('chTable').innerHTML = h + '</tbody>';
+    if (R.changesMethod) $('chNote').textContent = R.changesMethod;
   }
 
   /* ---------- map ---------- */
@@ -547,7 +602,7 @@
         ? `<td class="num fin">${r.pos === 1 ? dur(c.finish) : '+' + dur(r.behind)}</td><td class="num tag">Finished</td>${hasCur() ? '<td></td>' : ''}`
         : `<td class="num">${t < 0 ? '–' : r.pos === 1 ? 'Leader' : r.behind == null ? '–' : '+' + dur(r.behind)}</td><td class="num">${t <= 0 || r.pace == null ? '–' : r.pace.toFixed(1)}</td>${hasCur() ? `<td class="num">${t <= 0 || r.stw == null ? '–' : r.stw.toFixed(1)}</td>` : ''}`;
       return `<tr class="${s >= 0 ? 'hl' : ''}" data-id="${c.id}"><td>${r.pos}</td><td><div class="crew"><span class="dot ${s >= 0 ? SLOT[s] : ''}"></span><span class="nm">${esc(c.sail)} · ${esc(shortName(c))}</span></div>` +
-        `<small>${t < 0 ? c.division : r.done ? c.division : (r.p.dtf / 1000).toFixed(1) + ' km to go'}</small></td>${right}</tr>`;
+        `<small>${t < 0 ? c.division : r.done ? c.division : (r.p.dtf / 1000).toFixed(1) + ' km to go'}${(() => { const e = !r.done && (c.changes || []).find((x) => x.t0 <= t && t < x.t1); return e ? ` · <b style="color:var(--s2)">${e.kind === 'change' ? 'crew change' : 'stopped'}</b>` : ''; })()}</small></td>${right}</tr>`;
     }).join('');
   }
 
@@ -787,7 +842,7 @@
   /* ---------- re-render on selection change ---------- */
   function refreshAll() {
     writeURL(); syncSelectors();
-    renderStats(); renderSplits(); renderResults(); renderCurLegs(); renderWindLegs();
+    renderStats(); renderSplits(); renderResults(); renderChanges(); renderCurLegs(); renderWindLegs();
     styleBoats(); buildSeries(); drawCharts(); setTime(state.t);
   }
 
@@ -826,9 +881,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=31').then((r) => r.json()),
-    fetch('data/currents.json?v=31').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=31').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=33').then((r) => r.json()),
+    fetch('data/currents.json?v=33').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=33').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;

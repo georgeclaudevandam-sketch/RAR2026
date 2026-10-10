@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=32">
+<link rel="stylesheet" href="assets/style.css?v=33">
 </head>
 <body>
 <header class="masthead compact">
@@ -142,6 +142,16 @@
     <div class="tablewrap"><table class="splits" id="curTable"></table></div>
   </section>
 
+  <section class="card" id="chCard" hidden>
+    <h2>Crew changes</h2>
+    <p class="muted">Time each crew lost to crew changes at the beach gates: slowing down, landing, swapping rowers and getting back up to speed. Solid bars are crew changes, dashed bars are other stops. Sorted from fastest average change to slowest. Hover a bar segment for its time and place.</p>
+    <section class="stats" id="chFacts" style="margin:8px 0 12px"></section>
+    <div id="chBars" class="chbars"></div>
+    <h2 style="margin-top:14px;font-size:14px">By gate</h2>
+    <div class="tablewrap"><table class="splits" id="chTable"></table></div>
+    <p class="note" id="chNote"></p>
+  </section>
+
   <section class="card">
     <h2>Leg splits</h2>
     <p class="muted">Time for each leg between gates, from the 07:00 start. <b>Bold</b> is the fastest leg in the selected division; the small number is the leg rank.</p>
@@ -162,7 +172,7 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/currents.js?v=31"></script>
-<script src="assets/app.js?v=31"></script>
+<script src="assets/currents.js?v=33"></script>
+<script src="assets/app.js?v=33"></script>
 </body>
 </html>
