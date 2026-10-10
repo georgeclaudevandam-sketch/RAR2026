@@ -248,3 +248,9 @@ small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 4
 .board { max-height: calc(clamp(380px, calc(100vh - 290px), 900px) + 80px); }
 @media (max-width: 980px) { #map { height: 440px; } .board { max-height: none; } .crewbar .field { flex-direction: column; align-items: stretch; } }
 @media (max-width: 560px) { #map { height: 360px; } }
+
+/* ---- map at 150% of the fit-to-screen height (v3) ---- */
+#map { height: clamp(570px, calc((100vh - 290px) * 1.5), 1350px); }
+.board { max-height: calc(clamp(570px, calc((100vh - 290px) * 1.5), 1350px) + 80px); }
+@media (max-width: 980px) { #map { height: 560px; } .board { max-height: none; } }
+@media (max-width: 560px) { #map { height: 420px; } }
