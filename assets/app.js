@@ -779,6 +779,7 @@
     bind();
     refreshAll();
   }).catch((err) => {
+    console.error(err);
     document.querySelector('main').insertAdjacentHTML('afterbegin', `<p class="card">Couldn't load the race data (${esc(err.message)}).</p>`);
   });
 })();
