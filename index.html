@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=30">
+<link rel="stylesheet" href="assets/style.css?v=31">
 </head>
 <body>
 <header class="masthead compact">
@@ -47,7 +47,10 @@
 
   <section class="replay">
     <div class="mapcol">
-      <div id="map" role="region" aria-label="Race map"></div>
+      <div class="maps">
+        <div id="mapFollow" role="region" aria-label="Zoomed map following your crew"></div>
+        <div id="map" role="region" aria-label="Whole-course map"></div>
+      </div>
       <div class="ctlbar">
       <div class="controls" aria-label="Replay controls">
         <button id="playBtn" class="btn primary" aria-label="Play">▶</button>
@@ -159,7 +162,7 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/currents.js?v=26"></script>
-<script src="assets/app.js?v=26"></script>
+<script src="assets/currents.js?v=31"></script>
+<script src="assets/app.js?v=31"></script>
 </body>
 </html>

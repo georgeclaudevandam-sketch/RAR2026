@@ -396,48 +396,71 @@
 
   /* ---------- map ---------- */
   const isDark = () => document.documentElement.dataset.theme === 'dark' || (document.documentElement.dataset.theme !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
-  const boats = {};
-  function initMap() {
-    map = L.map('map', { zoomSnap: 0.25, preferCanvas: false });
-    tiles.light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
-    tiles.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' });
-    tiles.satLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, opacity: 0.9 });
-    tiles.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' });
-    setBase();
-    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setBase);
-
+  let boats = {};
+  // Two map views share the same layers: 'follow' (left, zoomed in on your crew) and 'overview' (right, whole course)
+  const views = [];
+  const FOLLOW_ZOOM = 2;      // +2 zoom levels = 4x closer than the whole-course view
+  function makeView(id, kind) {
+    const mp = L.map(id, { zoomSnap: 0.25, preferCanvas: false });
+    const v = { id, kind, map: mp, tiles: {}, boats: {}, cur: null };
+    v.tiles.light = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' });
+    v.tiles.dark = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, attribution: 'Tiles &copy; Esri, HERE, Garmin, &copy; OpenStreetMap contributors' });
+    v.tiles.satLabels = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, opacity: 0.9 });
+    v.tiles.sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 18, attribution: 'Imagery &copy; Esri, Maxar, Earthstar Geographics' });
     const course = R.course.map((n) => [n[0], n[1]]);
-    L.polyline(course, { color: '#ffffff', weight: 4, opacity: 0.55, interactive: false }).addTo(map);
-    L.polyline(course, { color: '#5b6f7a', weight: 1.5, dashArray: '5 6', opacity: 0.9, interactive: false }).addTo(map);
+    L.polyline(course, { color: '#ffffff', weight: 4, opacity: 0.55, interactive: false }).addTo(mp);
+    L.polyline(course, { color: '#5b6f7a', weight: 1.5, dashArray: '5 6', opacity: 0.9, interactive: false }).addTo(mp);
     R.gates.forEach((g) => {
       const isGate = g.name.startsWith('Gate');
-      const line = L.polyline([g.a, g.b], { color: isGate ? css('--gate') : '#d03b3b', weight: g.mandatory || !isGate ? 5 : 3, opacity: 0.95, dashArray: g.mandatory || !isGate ? null : '4 4' }).addTo(map);
+      const line = L.polyline([g.a, g.b], { color: isGate ? css('--gate') : '#d03b3b', weight: g.mandatory || !isGate ? 5 : 3, opacity: 0.95, dashArray: g.mandatory || !isGate ? null : '4 4' }).addTo(mp);
       const label = isGate ? `G${g.name.match(/Gate (\d)/)[1]} ${g.short}${g.mandatory ? ' · mandatory' : ''}` : g.name;
       if (isGate) line.bindTooltip(label, { permanent: true, direction: 'center', className: 'gatelabel', offset: [0, -12] });
       else line.bindTooltip(label);
     });
-    const bounds = L.latLngBounds(course).pad(0.04);
-    const fit = () => { map.invalidateSize(); map.fitBounds(bounds); };
-    fit();
-    let fitted = false;
-    new ResizeObserver(() => { map.invalidateSize(); if (!fitted) fit(); }).observe($('map'));
-    ['mousedown', 'wheel', 'touchstart'].forEach((ev) => $('map').addEventListener(ev, () => { fitted = true; }, { passive: true }));
-    window.addEventListener('load', () => { if (!fitted) fit(); });
-    const gateLabels = () => $('map').classList.toggle('far', map.getZoom() < 11.5);
-    map.on('zoomend', gateLabels); gateLabels();
-
+    const gateLabels = () => $(id).classList.toggle('far', mp.getZoom() < 11.5);
+    mp.on('zoomend', gateLabels);
     [...safety, ...crews].forEach((c) => {
       const trail = L.polyline([], { weight: 2, opacity: 0.8, interactive: false });
       const m = L.circleMarker([0, 0], { radius: 6, weight: 2, color: '#ffffff', fillOpacity: 1 });
       m.bindPopup('');
       m.on('click', () => m.setPopupContent(popupHtml(c)));
       m.bindTooltip(String(c.sail || 'S'), { permanent: true, direction: 'right', offset: [6, 0], className: 'boatlabel' });
-      boats[c.id] = { c, m, trail };
+      v.boats[c.id] = { c, m, trail };
     });
+    views.push(v);
+    return v;
+  }
+  function initMap() {
+    const ov = makeView('map', 'overview'), fo = makeView('mapFollow', 'follow');
+    map = ov.map;
+    boats = ov.boats;
+    setBase();
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', setBase);
+    const bounds = L.latLngBounds(R.course.map((n) => [n[0], n[1]])).pad(0.04);
+    const fit = () => { map.invalidateSize(); map.fitBounds(bounds); };
+    fit();
+    let fitted = false;
+    new ResizeObserver(() => { map.invalidateSize(); if (!fitted) fit(); fo.map.invalidateSize(); }).observe($('map'));
+    ['mousedown', 'wheel', 'touchstart'].forEach((ev) => $('map').addEventListener(ev, () => { fitted = true; }, { passive: true }));
+    window.addEventListener('load', () => { if (!fitted) fit(); });
+    $('map').classList.toggle('far', map.getZoom() < 11.5);
+    // follow view: 4x the whole-course zoom, re-centred on your crew every frame (the reader can still zoom it)
+    fo.map.setView(bounds.getCenter(), map.getZoom() + FOLLOW_ZOOM);
+    fo.badge = L.control({ position: 'topright' });
+    fo.badge.onAdd = () => { const d = L.DomUtil.create('div', 'followbadge'); d.id = 'followBadge'; return d; };
+    fo.badge.addTo(fo.map);
+  }
+  function followCrew() {
+    const fo = views.find((v) => v.kind === 'follow'); if (!fo || state.focus == null) return;
+    const c = byId[state.focus], p = at(c, state.t);
+    fo.map.setView([p.lat, p.lon], fo.map.getZoom(), { animate: false });
+    const el = $('followBadge'); if (el) el.textContent = `Following ${c.sail} · ${shortName(c)}`;
   }
   function setBase() {
-    Object.values(tiles).forEach((l) => map.hasLayer(l) && map.removeLayer(l));
-    if (($('satChk') || {}).checked) { tiles.sat.addTo(map); tiles.satLabels.addTo(map); } else (isDark() ? tiles.dark : tiles.light).addTo(map);
+    views.forEach((v) => {
+      Object.values(v.tiles).forEach((l) => v.map.hasLayer(l) && v.map.removeLayer(l));
+      if (($('satChk') || {}).checked) { v.tiles.sat.addTo(v.map); v.tiles.satLabels.addTo(v.map); } else (isDark() ? v.tiles.dark : v.tiles.light).addTo(v.map);
+    });
   }
   function popupHtml(c) {
     if (c.safety) return `<b>${esc(c.name)}</b>`;
@@ -458,8 +481,9 @@
   function initCurrents() {
     if (!CUR || !window.RARCurrents) return;
     document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Currents: ${esc(CUR.source)}${CUR.kind === 'atlas' ? ' Between atlas times the currents are blended in time; local jets (e.g. off harbour entrances) can run stronger than shown.' : ' Model currents are approximate, especially in the inner channels.'}${COAST ? ' Shoreline for the current animation: © OpenStreetMap contributors (ODbL).' : ''}</p>`);
-    curLayer = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed, COAST);
-    if ($('curChk').checked) curLayer.addTo(map);
+    views.forEach((v) => { v.cur = new RARCurrents.CurrentLayer(CUR, () => state.t, () => ($('satChk').checked || isDark() ? 'dark' : 'light'), () => state.speed, COAST); });
+    curLayer = views[0].cur;
+    if ($('curChk').checked) views.forEach((v) => v.cur.addTo(v.map));
     $('curChk').closest('label').hidden = false;
     const lg = L.control({ position: 'bottomleft' });
     lg.onAdd = () => {
@@ -471,13 +495,13 @@
     };
     lg.addTo(map); curLayer.legend = lg; curRateLabel();
     $('curChk').addEventListener('change', (e) => {
-      if (e.target.checked) { curLayer.addTo(map); lg.addTo(map); curRateLabel(); } else { map.removeLayer(curLayer); lg.remove(); }
+      if (e.target.checked) { views.forEach((v) => v.cur.addTo(v.map)); lg.addTo(map); curRateLabel(); } else { views.forEach((v) => v.map.removeLayer(v.cur)); lg.remove(); }
     });
   }
   function styleBoats() {
     const showLabels = $('labelsChk').checked, showSafety = $('safetyChk').checked;
-    const order = [];
-    Object.values(boats).forEach((b) => {
+    views.forEach((v) => { const map = v.map, order = [];
+    Object.values(v.boats).forEach((b) => {
       const c = b.c, s = c.safety ? -1 : slotOf(c);
       const visible = c.safety ? showSafety : inDiv(c) || s >= 0;
       b.visible = visible;
@@ -495,10 +519,11 @@
     order.sort((a, b) => (a[0] === -1 ? 9 : 3 - a[0]) - (b[0] === -1 ? 9 : 3 - b[0]));
     order.reverse().forEach(([, b]) => { b.trail.bringToFront(); });
     order.forEach(([, b]) => { b.m.bringToFront(); });
+    });
   }
   function updateBoats() {
     const t = state.t, trails = $('trailsChk').checked;
-    Object.values(boats).forEach((b) => {
+    views.forEach((v) => Object.values(v.boats).forEach((b) => {
       if (!b.visible) return;
       const p = at(b.c, t);
       b.m.setLatLng([p.lat, p.lon]);
@@ -508,7 +533,8 @@
       for (let i = idxAt(tr, from); i <= p.i; i++) if (tr[i][0] >= from) pts.push([tr[i][1], tr[i][2]]);
       pts.push([p.lat, p.lon]);
       b.trail.setLatLngs(pts);
-    });
+    }));
+    followCrew();
   }
 
   /* ---------- leaderboard ---------- */
@@ -800,9 +826,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=26').then((r) => r.json()),
-    fetch('data/currents.json?v=26').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=26').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=31').then((r) => r.json()),
+    fetch('data/currents.json?v=31').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=31').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;

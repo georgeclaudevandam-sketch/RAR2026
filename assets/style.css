@@ -260,3 +260,9 @@ small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 4
 .ctlbar { position: sticky; bottom: 0; z-index: 1000; background: var(--surface); border-top: 1px solid var(--line);
   box-shadow: 0 -4px 14px rgba(0, 0, 0, .12); border-radius: 0 0 var(--radius) var(--radius); }
 .ctlbar .controls { border-top: 0; }
+
+/* ---- two maps: zoomed follow view (left) + whole course (right) ---- */
+.maps { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; background: var(--line); }
+.maps > div { height: clamp(570px, calc((100vh - 290px) * 1.5), 1350px); background: #aad3df; }
+.followbadge { background: rgba(10, 20, 28, .72); color: #fff; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600; }
+@media (max-width: 980px) { .maps { grid-template-columns: 1fr; } .maps > div { height: 440px; } #mapFollow { height: 360px; } }
