@@ -17,6 +17,7 @@
   --accent-ink: #ffffff;
   --gate: #c98500;
   --temp: #4a3aa7;
+  --wind: #1baf7a;
   --radius: 10px;
 }
 @media (prefers-color-scheme: dark) {
@@ -38,13 +39,14 @@
     --sea: #10232e;
     --gate: #eda100;
     --temp: #9085e9;
+    --wind: #199e70;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
   --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #8f8d86;
   --grid: #2c2c2a; --axis: #383835; --line: rgba(255,255,255,0.10); --field: #5c5b56;
-  --field-band: rgba(195,194,183,0.12); --s1: #3987e5; --s2: #d95926; --s3: #199e70; --sea: #10232e; --gate: #eda100; --temp: #9085e9;
+  --field-band: rgba(195,194,183,0.12); --s1: #3987e5; --s2: #d95926; --s3: #199e70; --sea: #10232e; --gate: #eda100; --temp: #9085e9; --wind: #199e70;
 }
 
 * { box-sizing: border-box; }

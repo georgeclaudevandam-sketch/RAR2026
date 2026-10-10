@@ -139,6 +139,32 @@
     }
     return rows[rows.length - 1][col];
   }
+  // wind as a vector the air moves TOWARD (east, north), knots, interpolated between hourly rows
+  function windVec(t) {
+    const rows = R.weather && R.weather.rows;
+    if (!rows || !rows.length) return null;
+    const vec = (r) => (r[3] == null || r[4] == null ? null : [r[3] * Math.sin((r[4] + 180) * Math.PI / 180), r[3] * Math.cos((r[4] + 180) * Math.PI / 180)]);
+    let i = rows.findIndex((r) => r[0] >= t);
+    if (i <= 0) return vec(rows[Math.max(i, 0)]);
+    const a = vec(rows[i - 1]), b = vec(rows[i]);
+    if (!a || !b) return a || b;
+    const f = (t - rows[i - 1][0]) / (rows[i][0] - rows[i - 1][0]);
+    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f];
+  }
+  // wind component along the boat's track, knots: + tailwind, − headwind; time-weighted over [t0, t1]
+  function windAlong(c, t0, t1) {
+    const tr = c.track; let s = 0, w = 0, head = 0;
+    for (let a = 1; a < tr.length; a++) {
+      const lo = Math.max(tr[a - 1][0], t0), hi = Math.min(tr[a][0], t1);
+      if (hi <= lo) continue;
+      const dy = (tr[a][1] - tr[a - 1][1]) * 110540, dx = (tr[a][2] - tr[a - 1][2]) * 111320 * Math.cos(tr[a][1] * Math.PI / 180);
+      const d = Math.hypot(dx, dy); if (d < 30) continue;          // ignore stops and GPS jitter
+      const wv = windVec((lo + hi) / 2); if (!wv) continue;
+      const along = (wv[0] * dx + wv[1] * dy) / d;
+      s += along * (hi - lo); w += hi - lo; if (along < -0.2) head += hi - lo;
+    }
+    return w ? { along: s / w, headShare: head / w } : null;
+  }
   function renderWx() {
     if (!R.weather) return;
     const tc = wxAt(state.t, 1), w = wxAt(state.t, 3), d = wxAt(state.t, 4, true);
@@ -245,6 +271,11 @@
         tt < 120 || g.along == null ? 'Time given or taken' : `${g.gain >= 0 ? 'Net help' : 'Net cost'} · avg ${(Math.abs(g.along) / KN).toFixed(2)} kn ${g.along >= 0 ? 'with' : 'against'}`]);
     }
     if (R.weather) {
+      const wa = tt >= 300 ? windAlong(c, 0, tt) : null;
+      tiles.push(['Wind on your track', wa == null ? '–' : `${wa.along >= 0 ? '+' : '−'}${Math.abs(wa.along).toFixed(1)}<small class="muted"> kn</small>`,
+        wa == null ? '+ tailwind, − headwind' : `${wa.along >= 0 ? 'Net tailwind' : 'Net headwind'} · ${Math.round(wa.headShare * 100)}% of time into it`]);
+    }
+    if (R.weather) {
       const now = wxAt(t, 1), temps = [];
       for (let x = 0; x <= Math.max(tt, 0); x += 600) { const v = wxAt(x, 1); if (v != null) temps.push(v); }
       if (now != null) {
@@ -290,6 +321,19 @@
       h += `<td class="num">${dur(c.finish)}</td></tr>`;
     });
     $('splitsTable').innerHTML = h + '</tbody>';
+  }
+  function renderWindLegs() {
+    if (!R.weather) return;
+    $('windCard').hidden = false;
+    const names = legNames(), sel = selected();
+    const bounds = (c) => [0, ...gateList().map((g) => c.splits[g.name] ?? null), c.finish];
+    const fmt = (v) => (v == null ? '–' : `${v.along >= 0 ? '+' : '−'}${Math.abs(v.along).toFixed(1)} kn<small class="sub">${v.along >= 0 ? 'tail' : 'head'} · ${Math.round(v.headShare * 100)}% into wind</small>`);
+    let h = '<thead><tr><th>Leg</th>' + sel.map((c) => `<th class="num"><span class="crew" style="justify-content:flex-end"><span class="dot ${SLOT[slotOf(c)]}"></span>${esc(c.sail)}</span></th>`).join('') + '</tr></thead><tbody>';
+    names.forEach((n, k) => {
+      h += `<tr><td>${esc(n)}</td>` + sel.map((c) => { const b = bounds(c); return `<td class="num">${b[k] == null || b[k + 1] == null ? '–' : fmt(windAlong(c, b[k], b[k + 1]))}</td>`; }).join('') + '</tr>';
+    });
+    h += '<tr><td><b>Whole race</b></td>' + sel.map((c) => `<td class="num"><b>${fmt(windAlong(c, 0, c.finish))}</b></td>`).join('') + '</tr>';
+    $('windTable').innerHTML = h + '</tbody>';
   }
   function renderCurLegs() {
     if (!hasCur()) return;
@@ -475,7 +519,8 @@
       series.temp = times.map((t) => wxAt(t, 1));
       series.feels = times.map((t) => wxAt(t, 2));
       series.wind = times.map((t) => wxAt(t, 3));
-      series.windDir = times.map((t) => wxAt(t, 4, true));
+      series.windDir = times.map((t) => { const v = windVec(t); return v ? (Math.atan2(v[0], v[1]) * 180 / Math.PI + 180 + 360) % 360 : null; });
+      series.windSp = times.map((t) => { const v = windVec(t); return v ? Math.hypot(v[0], v[1]) : null; });
     }
     if (!hasCur()) state.speedMode = 'sog';
     series.speed = series[state.speedMode];
@@ -536,6 +581,10 @@
       });
     }
     if (opts.lines) opts.lines.forEach((ln) => { s += `<path d="${path(ln.arr)}" fill="none" stroke="${ln.stroke}" stroke-width="2.25" stroke-linejoin="round"/>`; });
+    if (opts.arrows) opts.arrows.forEach(([t, toDeg]) => {   // arrows point the way the wind blows (downwind)
+      if (toDeg == null) return;
+      s += `<g transform="translate(${x(t).toFixed(1)},${m.t + 9}) rotate(${toDeg.toFixed(0)})"><path d="M0,7 L0,-6 M-3.5,-2 L0,-7 L3.5,-2" fill="none" stroke="var(--ink-2)" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g>`;
+    });
     else selected().slice().reverse().forEach((c) => {
       const sl = slotOf(c);
       s += `<path d="${path(opts.data[c.id])}" fill="none" stroke="var(--${SLOT[sl]})" stroke-width="2.25" stroke-linejoin="round"/>`;
@@ -597,7 +646,15 @@
       drawChart('temp', { el: 'chartTemp', label: 'Outside temperature during the race', yMin: lo, yMax: () => hi, yTicks: tt, units: ['°C', '°F'], right: { ticks: fTicks(lo, hi), toLeft: (f) => (f - 32) / 1.8 },
         lines: [{ arr: series.temp, stroke: 'var(--temp)', name: 'Temperature', fmt: (v) => `${v.toFixed(1)} °C · ${(v * 1.8 + 32).toFixed(0)} °F` },
           ...(series.feels ? [{ arr: series.feels, stroke: 'none', name: 'Feels like', fmt: (v) => `${v.toFixed(1)} °C` }] : []),
-          ...(series.wind ? [{ arr: series.wind, stroke: 'none', name: 'Wind', fmt: (v, k) => `${v.toFixed(0)} kn ${compass(series.windDir[k])}` }] : [])] });
+        ] });
+    }
+    if (series.windSp) {
+      const mx = Math.max(2, ...series.windSp.filter((v) => v != null));
+      const hi = Math.ceil(mx + 1.5), wt = []; for (let v = 0; v <= hi; v += 1) wt.push(v);
+      const kmT = []; for (let v = 0; v <= hi * 1.852; v += 2) kmT.push(v);
+      const arrows = []; for (let t = 0; t <= series.times[series.times.length - 1]; t += 1800) { const v = windVec(t); if (v) arrows.push([t, (Math.atan2(v[0], v[1]) * 180 / Math.PI + 360) % 360]); }
+      drawChart('wind', { el: 'chartWind', label: 'Wind speed and direction during the race', yMin: 0, yMax: () => hi, yTicks: wt, units: ['kn', 'km/h'], right: { ticks: kmT, toLeft: (k) => k / 1.852 }, arrows,
+        lines: [{ arr: series.windSp, stroke: 'var(--wind)', name: 'Wind', fmt: (v, k) => `${v.toFixed(1)} kn · ${(v * 1.852).toFixed(1)} km/h from ${compass(series.windDir[k])} (${series.windDir[k] == null ? '' : series.windDir[k].toFixed(0) + '°'})` }] });
     }
     const leg = selected().map((c) => `<span><i style="background:var(--${SLOT[slotOf(c)]})"></i>${esc(c.sail)} · ${esc(shortName(c))}</span>`).join('');
     $('legGap').innerHTML = leg + '<span><i style="background:var(--field)"></i>Rest of field</span>';
@@ -654,7 +711,7 @@
   /* ---------- re-render on selection change ---------- */
   function refreshAll() {
     writeURL(); syncSelectors();
-    renderStats(); renderSplits(); renderResults(); renderCurLegs();
+    renderStats(); renderSplits(); renderResults(); renderCurLegs(); renderWindLegs();
     styleBoats(); buildSeries(); drawCharts(); setTime(state.t);
   }
 
@@ -693,9 +750,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=18').then((r) => r.json()),
-    fetch('data/currents.json?v=18').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=18').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=20').then((r) => r.json()),
+    fetch('data/currents.json?v=20').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=20').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;

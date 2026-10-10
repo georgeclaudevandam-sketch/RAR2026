@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=19">
+<link rel="stylesheet" href="assets/style.css?v=20">
 </head>
 <body>
 <header class="masthead">
@@ -111,6 +111,15 @@
     <div class="chart short" id="chartTemp"></div>
   </section>
 
+  <section class="card" id="windCard" hidden>
+    <h2>Wind</h2>
+    <p class="muted">Hourly wind over Salt Spring Island on race day, in knots (left scale) and km/h (right scale). Arrows along the top point the way the wind was blowing. Hover for direction.</p>
+    <div class="chart short" id="chartWind"></div>
+    <h2 style="margin-top:14px">Wind along the course by leg</h2>
+    <p class="muted">Average wind component along each boat's track: + tailwind, − headwind. The small figure is the share of time spent rowing into a headwind (more than 0.2 kn against).</p>
+    <div class="tablewrap"><table class="splits" id="windTable"></table></div>
+  </section>
+
   <section class="card" id="curCard" hidden>
     <h2>Current effect by leg</h2>
     <p class="muted">Time the current gave (+) or took (−) on each leg, compared with rowing the same water speed in still water. The small figure is the average current along the boat's track.</p>
@@ -136,7 +145,7 @@
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/currents.js?v=18"></script>
-<script src="assets/app.js?v=18"></script>
+<script src="assets/currents.js?v=20"></script>
+<script src="assets/app.js?v=20"></script>
 </body>
 </html>
