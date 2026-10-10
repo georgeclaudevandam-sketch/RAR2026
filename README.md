@@ -33,6 +33,7 @@ To rebuild `data/race.json` from the raw files:
 python3 tools/decode_yb_positions.py
 python3 tools/build_race_json.py
 python3 tools/build_crew_detail.py # crew 204's own Niobium + Maptattoo recordings replace its YB track
+python3 tools/build_progress.py    # jump-free distance to finish (YB's jumps where the course doubles back)
 python3 tools/build_changes.py     # crew changes and stops for every crew
 python3 tools/build_weather.py
 python3 tools/build_coast.py      # shoreline mask from data/raw/osm_coastline.json

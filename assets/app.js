@@ -929,9 +929,9 @@
   }
 
   Promise.all([
-    fetch('data/race.json?v=36').then((r) => r.json()),
-    fetch('data/currents.json?v=36').then((r) => (r.ok ? r.json() : null)).catch(() => null),
-    fetch('data/coast.json?v=36').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/race.json?v=38').then((r) => r.json()),
+    fetch('data/currents.json?v=38').then((r) => (r.ok ? r.json() : null)).catch(() => null),
+    fetch('data/coast.json?v=38').then((r) => (r.ok ? r.json() : null)).catch(() => null),
   ]).then(([data, cur, coast]) => {
     R = data; CUR = cur; COAST = coast;
     const all = R.teams;
@@ -949,6 +949,7 @@
       document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Weather: ${esc(R.weather.source)}</p>`);
     }
     if (R.dateNote) $('dateNote').textContent = R.dateNote;
+    if (R.progressNote) document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>${esc(R.progressNote)}</p>`);
     R.teams.filter((c) => c.source).forEach((c) => document.querySelector('.foot').insertAdjacentHTML('beforeend', `<p>Crew ${esc(c.sail)} track and stroke data: ${esc(c.source)}</p>`));
     const sl = $('slider'); sl.min = tMin; sl.max = tMax; sl.step = 15;
     computeResults();
