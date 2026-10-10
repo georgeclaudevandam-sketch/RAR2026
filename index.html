@@ -6,7 +6,7 @@
 <title>Race Around the Rock 2026 · Race Day Analytics</title>
 <meta name="description" content="Replay and analytics for Race Around the Rock 2026, an 87 km rowing circumnavigation of Salt Spring Island, BC.">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<link rel="stylesheet" href="assets/style.css?v=24">
+<link rel="stylesheet" href="assets/style.css?v=26">
 </head>
 <body>
 <header class="masthead">
@@ -107,7 +107,7 @@
 
   <section class="card" id="strokeCard" hidden>
     <h2>Stroke data <span class="muted" style="font-weight:400" id="strokeWho"></span></h2>
-    <p class="muted">From the crew's own Niobium log (1 reading a second), shown as 2-minute averages. Only crews that shared their recordings have this.</p>
+    <p class="muted">From the crew's own Niobium log (1 reading a second), shown as 2-minute averages. Only crews that shared their recordings have this. <a href="compare.html">How the recordings compare with YB →</a></p>
     <div class="charts" style="margin:0">
       <figure style="margin:0"><figcaption><h2 style="font-size:14px">Stroke rate</h2></figcaption><div class="chart short" id="chartSpm"></div></figure>
       <figure style="margin:0"><figcaption><h2 style="font-size:14px">Distance per stroke</h2></figcaption><div class="chart short" id="chartDps"></div></figure>
@@ -150,13 +150,14 @@
 
   <footer class="foot">
     <p>Data: <a href="https://yb.tl/rar2026" target="_blank" rel="noopener">YB Tracking, Race Around the Rock 2026</a>. Positions are recorded about once a minute. Gate times are interpolated from the GPS track.</p>
+    <p><a href="compare.html">How accurate are the tracks? A comparison of YB, Niobium and Maptattoo for crew 204 →</a></p>
     <p id="dateNote"></p>
   </footer>
 </main>
 
 <div id="tip" class="tip" role="tooltip" hidden></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-<script src="assets/currents.js?v=24"></script>
-<script src="assets/app.js?v=25"></script>
+<script src="assets/currents.js?v=26"></script>
+<script src="assets/app.js?v=26"></script>
 </body>
 </html>

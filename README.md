@@ -35,6 +35,7 @@ python3 tools/build_race_json.py
 python3 tools/build_crew_detail.py # crew 204's own Niobium + Maptattoo recordings replace its YB track
 python3 tools/build_weather.py
 python3 tools/build_coast.py      # shoreline mask from data/raw/osm_coastline.json
+python3 tools/compare_sources.py  # data/compare.json for compare.html (YB vs Niobium vs Maptattoo)
 python3 tools/build_currents.py   # currents from data/raw/atlas_arrows.json (CHS atlas), else the UBC model   # adds race-day weather from data/raw/weather_open-meteo.csv
 ```
 

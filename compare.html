@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Track Data Comparison · RAR 2026</title>
+<meta name="description" content="How the YB tracker, a 1-second Niobium log and a Maptattoo GPX compare for crew 204 at Race Around the Rock 2026.">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="assets/style.css?v=26">
+<style>
+  :root { --yb: #eb6834; --nio: #2a78d6; --map: #1baf7a; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --yb: #d95926; --nio: #3987e5; --map: #199e70; } }
+  :root[data-theme="dark"] { --yb: #d95926; --nio: #3987e5; --map: #199e70; }
+  .findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; margin-bottom: 16px; }
+  .finding { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; font-size: 13px; }
+  .finding b { display: block; font-size: 14px; margin-bottom: 3px; }
+  .key i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 5px; }
+  .card h3 { font-size: 14px; margin: 14px 0 4px; }
+  .card p { font-size: 13px; }
+  #cmpMap { height: 420px; border-radius: 8px; }
+  .tablewrap table td, .tablewrap table th { font-size: 12px; }
+  .good { color: var(--ink); } .warn { font-weight: 650; }
+  .back { color: #fff; opacity: .85; font-size: 13px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="wrap">
+    <p class="eyebrow"><a class="back" href="./?crew=204">← Race day analytics</a></p>
+    <h1>How accurate are the tracks?</h1>
+    <p class="sub">Crew 204 (Team Oar Deal) was recorded three ways on race day. This page compares them second by second.</p>
+  </div>
+</header>
+<main class="wrap">
+  <section class="card">
+    <h2>The three sources</h2>
+    <p class="key">
+      <span><i style="background:var(--yb)"></i><b>YB tracker</b>: the race's official satellite tracker, used for every crew on the main page.</span><br>
+      <span><i style="background:var(--nio)"></i><b>Niobium</b>: the crew's own log, one reading a second, with speed and stroke data.</span><br>
+      <span><i style="background:var(--map)"></i><b>Maptattoo</b>: a phone GPS track, one point every 10 seconds.</span>
+    </p>
+    <p class="muted">Niobium is used as the reference throughout because it records most often. Where Niobium and Maptattoo, two independent devices, agree within a few metres, that is taken as the true track.</p>
+    <div class="tablewrap"><table class="splits" id="tCoverage"></table></div>
+  </section>
+
+  <section class="findings" id="findings"></section>
+
+  <section class="card">
+    <h2>1. Do the clocks agree?</h2>
+    <p>Each source was shifted in time to find the offset that best lines it up with Niobium, hour by hour. Zero means the clocks agree.</p>
+    <div class="tablewrap"><table class="splits" id="tClock"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>2. How far apart are the positions?</h2>
+    <p>Distance from each source's fix to where Niobium put the boat at that same instant. "Along" is the error in the direction of travel (looks like a timing error); "across" is sideways error.</p>
+    <div class="tablewrap"><table class="splits" id="tAgree"></table></div>
+    <h3>Position error through the race</h3>
+    <p class="muted">Each orange dot is one YB fix; the green line is Maptattoo (1-minute samples). Log scale: each grid line is 10× the one below. Ringed dots are the YB fixes the site now removes.</p>
+    <div class="legend"><span><i style="background:var(--yb)"></i>YB fix</span><span><i style="background:var(--map)"></i>Maptattoo</span></div>
+    <div class="chart" id="cErr"></div>
+    <h3>Where YB went wrong</h3>
+    <p class="muted">The worst YB fixes (orange) against the crew's own tracks, around Sansum Narrows. Zoom out to see the whole race.</p>
+    <div id="cmpMap"></div>
+    <div class="tablewrap" style="margin-top:8px"><table class="splits" id="tWorst"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>3. Distance: how sampling rate changes it</h2>
+    <p>The same Niobium track, thinned out to one point every N seconds. Fewer points cut corners, so the distance shrinks. The dots show what each source actually measured over the same window.</p>
+    <div class="legend"><span><i style="background:var(--nio)"></i>Niobium thinned to N seconds</span><span><i style="background:var(--map)"></i>Maptattoo</span><span><i style="background:var(--yb)"></i>YB raw / cleaned</span></div>
+    <div class="chart" id="cDist"></div>
+    <div class="tablewrap"><table class="splits" id="tDist"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>4. Gate and finish times</h2>
+    <p>When each source has the boat crossing each gate line (race time from 07:00). The spread is the largest difference between sources.</p>
+    <div class="tablewrap"><table class="splits" id="tGates"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>5. Leg distances</h2>
+    <p>Distance rowed on each leg according to each source, using the same gate times.</p>
+    <div class="tablewrap"><table class="splits" id="tLegs"></table></div>
+  </section>
+
+  <section class="card">
+    <h2>6. Speed</h2>
+    <p>Speed from positions compared with the Niobium speed reading, averaged over different windows. Bias is the average difference; 95% of differences fall within the range shown.</p>
+    <div class="tablewrap"><table class="splits" id="tSpeed"></table></div>
+    <h3 id="exTitle">Example: speed around Sunset Beach</h3>
+    <p class="muted">YB can only give an average between fixes (orange steps), so short slowdowns and the stop at the gate disappear.</p>
+    <div class="legend"><span><i style="background:var(--nio)"></i>Niobium speed reading</span><span><i style="background:var(--map)"></i>Maptattoo</span><span><i style="background:var(--yb)"></i>YB between fixes</span></div>
+    <div class="chart" id="cSpeed"></div>
+  </section>
+
+  <section class="two">
+    <section class="card">
+      <h2>7. Stops</h2>
+      <p>Stops of 30 seconds or more, found independently in each source.</p>
+      <div class="tablewrap"><table class="splits" id="tStops"></table></div>
+    </section>
+    <section class="card">
+      <h2>8. Niobium self-checks</h2>
+      <p>Checks of the Niobium log against itself and against Maptattoo.</p>
+      <div class="tablewrap"><table class="splits" id="tDevice"></table></div>
+    </section>
+  </section>
+
+  <section class="card">
+    <h2>9. What changes on the main page</h2>
+    <p>Crew 204's numbers worked out from the YB track alone, and from the crew's own recordings (now used on the site).</p>
+    <div class="tablewrap"><table class="splits" id="tImpact"></table></div>
+  </section>
+
+  <footer class="foot">
+    <p>Built by <code>tools/compare_sources.py</code> from the raw files in <code>data/raw</code>. Distances are straight-line between consecutive fixes; times are Pacific Daylight Time.</p>
+  </footer>
+</main>
+<div id="tip" class="tip" role="tooltip" hidden></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/compare.js?v=26"></script>
+</body>
+</html>
