@@ -230,3 +230,21 @@ small.sub { display: block; font-size: 11px; color: var(--muted); font-weight: 4
 .board { max-height: calc(clamp(360px, calc(100vh - 360px), 760px) + 86px); }
 @media (max-width: 980px) { #map { height: 440px; } .board { max-height: none; } }
 @media (max-width: 560px) { #map { height: 360px; } }
+
+/* ---- smaller readouts, taller map (v2) ---- */
+.crewbar { align-items: center; margin-bottom: 6px; }
+.crewbar .field { flex-direction: row; align-items: center; gap: 6px; font-size: 11px; }
+.crewbar .field select { padding: 3px 6px; font-size: 12px; min-width: 180px; }
+.statshead { margin: 0 0 3px; }
+.statshead h2 { font-size: 12px; }
+.statshead .muted { font-size: 11px; }
+.stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 5px; margin-bottom: 8px; }
+.stat { padding: 4px 7px; border-radius: 8px; }
+.stat .k { font-size: 9.5px; }
+.stat .v { font-size: 13.5px; margin-top: 0; }
+.stat .v small { font-size: 10px; }
+.stat .d { font-size: 9.5px; line-height: 1.2; -webkit-line-clamp: 1; white-space: nowrap; text-overflow: ellipsis; display: block; }
+#map { height: clamp(380px, calc(100vh - 290px), 900px); }
+.board { max-height: calc(clamp(380px, calc(100vh - 290px), 900px) + 80px); }
+@media (max-width: 980px) { #map { height: 440px; } .board { max-height: none; } .crewbar .field { flex-direction: column; align-items: stretch; } }
+@media (max-width: 560px) { #map { height: 360px; } }
