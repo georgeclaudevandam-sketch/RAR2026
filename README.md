@@ -31,7 +31,22 @@ To rebuild `data/race.json` from the raw files:
 ```
 python3 tools/decode_yb_positions.py
 python3 tools/build_race_json.py
-python3 tools/build_weather.py   # adds race-day weather from data/raw/weather_open-meteo.csv
+python3 tools/build_weather.py
+python3 tools/build_coast.py      # shoreline mask from data/raw/osm_coastline.json
+python3 tools/build_currents.py   # currents from data/raw/atlas_arrows.json (CHS atlas), else the UBC model   # adds race-day weather from data/raw/weather_open-meteo.csv
 ```
 
 Gate times are interpolated from the GPS track, which records positions about once a minute.
+
+## Currents
+
+Surface currents come from the **PNW Current Atlas** (Canadian Hydrographic Service current atlas data) for
+Sunday 23 August 2026. Arrows were read from 11 screenshots (06:26 to 18:13) by `tools/extract_atlas_arrows.py`:
+the map was aligned to the OpenStreetMap coastline, and each arrow's direction and thickness were measured.
+The atlas shows speed by arrow thickness; the thickness classes were calibrated against the official CHS 2026
+current tables at Active Pass, Porlier Pass, Trincomali Channel, Swanson Channel and Sansum Narrows, so speeds
+are approximate (roughly 0.3, 0.7, 1.2, 2, 3, 4 and 5.5 knots). Between atlas times the field is blended
+linearly. The screenshots themselves are not published here.
+
+An earlier version used the UBC SalishSeaCast ocean model (`CURRENT_SOURCE=model`), which did not match
+race-day conditions in Stuart Channel.

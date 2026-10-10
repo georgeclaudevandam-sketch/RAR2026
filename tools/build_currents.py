@@ -122,9 +122,59 @@ for k in keep:
     frames_u.append(ue); frames_v.append(vn)
 FU = np.array(frames_u); FV = np.array(frames_v); FT = np.array([tsec[k] for k in keep], dtype=float)
 
+# ---- preferred source: CHS current atlas vectors (tools/extract_atlas_arrows.py) -----------------
+SOURCE = os.environ.get('CURRENT_SOURCE', 'atlas' if os.path.exists('data/raw/atlas_arrows.json') else 'model')
+if SOURCE == 'atlas':
+    import base64
+    from scipy import ndimage
+    A = json.load(open('data/raw/atlas_arrows.json'))
+    CO = json.load(open('data/coast.json'))
+    bits = np.unpackbits(np.frombuffer(base64.b64decode(CO['bits']), np.uint8))[:CO['nLat'] * CO['nLon']]
+    COAST = ndimage.binary_dilation(bits.reshape(CO['nLat'], CO['nLon']).astype(bool), iterations=2)
+    def wet(lat, lon):
+        j = ((lat - CO['lat0']) / CO['dlat']).astype(int); i = ((lon - CO['lon0']) / CO['dlon']).astype(int)
+        ok = (j >= 0) & (j < CO['nLat']) & (i >= 0) & (i < CO['nLon'])
+        out = np.ones_like(lat, bool); out[ok] = COAST[j[ok], i[ok]]
+        return out
+    ft, fu, fv = [], [], []
+    for clock, rows in A['frames'].items():
+        h, m_ = map(int, clock.split(':'))
+        R_ = np.array(rows, float)
+        alat, alon, kn, brg = R_.T
+        sp = kn * 0.514444
+        au = sp * np.sin(np.radians(brg)); av = sp * np.cos(np.radians(brg))
+        atree = cKDTree(PX(alon, alat))
+        q = PX(GLON.ravel(), GLAT.ravel())
+        dd, nn2 = atree.query(q, k=12)
+        U2 = np.zeros(len(q)); V2 = np.zeros(len(q))
+        clat, clon = GLAT.ravel(), GLON.ravel()
+        steps = np.linspace(0.05, 0.95, 16)
+        for c in range(len(q)):
+            wsum = 0.0; ue = ve = 0.0; used = 0
+            for d_, k_ in zip(dd[c], nn2[c]):
+                # only use arrows in sight across water (don't blend channels separated by an island)
+                if not wet(clat[c] + (alat[k_] - clat[c]) * steps, clon[c] + (alon[k_] - clon[c]) * steps).all():
+                    continue
+                ww = 1.0 / max(d_, 150.0) ** 2
+                ue += ww * au[k_]; ve += ww * av[k_]; wsum += ww; used += 1
+                if used == 5: break
+            if wsum == 0:   # nothing in sight: nearest arrow
+                ue, ve, wsum = au[nn2[c][0]], av[nn2[c][0]], 1.0
+            U2[c] = ue / wsum; V2[c] = ve / wsum
+        ft.append((h - 7) * 3600 + m_ * 60); fu.append(U2.reshape(GLAT.shape)); fv.append(V2.reshape(GLAT.shape))
+    o = np.argsort(ft)
+    FT = np.array(ft, float)[o]; FU = np.array(fu)[o]; FV = np.array(fv)[o]
+    mask = np.ones_like(mask)          # every cell carries a value; the map clips to the real shoreline
+    SHIFT = 0
+    print('source: CHS current atlas,', len(FT), 'frames at', [int(t) for t in FT])
+
 cur = {
-    'source': 'SalishSeaCast (UBC) hourly surface currents, model run V21-11, top layer (0.5 m), '
+    'source': ('PNW Current Atlas / Canadian Hydrographic Service current atlas for Sunday 23 August 2026, '
+               'read from screenshots of the atlas at about 70-minute intervals; speeds approximate (from arrow thickness), '
+               'calibrated against the official CHS current tables.') if SOURCE == 'atlas' else
+              'SalishSeaCast (UBC) hourly surface currents, model run V21-11, top layer (0.5 m), '
               'for Sunday 23 August 2026' + (f', shifted {SHIFT // 60} min earlier to match race-day observations' if SHIFT else '') + '.',
+    'kind': SOURCE,
     'grid': {'lat0': float(glat[0]), 'lon0': float(glon[0]), 'dlat': GRID['dlat'], 'dlon': GRID['dlon'],
              'nLat': len(glat), 'nLon': len(glon)},
     'times': [int(t) for t in FT],
@@ -136,7 +186,7 @@ cur = {
 }
 json.dump(cur, open('data/currents.json', 'w'), separators=(',', ':'))
 mx = np.sqrt(FU ** 2 + FV ** 2)[:, mask].max()
-print(f'currents.json: {len(glat)}x{len(glon)} grid, {len(FT)} hours, max {mx:.2f} m/s ({mx * 1.94384:.1f} kn)')
+print(f'currents.json: {len(glat)}x{len(glon)} grid, {len(FT)} frames, max {mx:.2f} m/s ({mx * 1.94384:.1f} kn)')
 
 
 # ---- current at boats; speed over ground vs through the water ----------------------
