@@ -158,7 +158,7 @@
       const lo = Math.max(tr[a - 1][0], t0), hi = Math.min(tr[a][0], t1);
       if (hi <= lo) continue;
       const dy = (tr[a][1] - tr[a - 1][1]) * 110540, dx = (tr[a][2] - tr[a - 1][2]) * 111320 * Math.cos(tr[a][1] * Math.PI / 180);
-      const d = Math.hypot(dx, dy); if (d < 30) continue;          // ignore stops and GPS jitter
+      const d = Math.hypot(dx, dy); if (d < 0.5 * (tr[a][0] - tr[a - 1][0])) continue;   // ignore stops and GPS jitter (< 0.5 m/s)
       const wv = windVec((lo + hi) / 2); if (!wv) continue;
       const along = (wv[0] * dx + wv[1] * dy) / d;
       s += along * (hi - lo); w += hi - lo; if (along < -0.2) head += hi - lo;
